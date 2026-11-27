@@ -1,0 +1,15 @@
+#!/bin/bash
+# Writes the revocation list of the VPN users' client CA again, for the admin
+# panel's helper after a revocation and once a day.
+#
+# client-crl DIR: DIR holds client-ca.pem, client-ca-key.pem and the revoked
+# certificates in client-revoked; the list goes to DIR/client-crl.pem.
+set -Eeuo pipefail
+
+readonly LIB_DIR=/usr/local/lib/ocserv-docker
+# shellcheck source=SCRIPTDIR/../../lib/ocserv-docker/common.sh
+source "$LIB_DIR/common.sh"
+# shellcheck source=SCRIPTDIR/../../lib/ocserv-docker/certs.sh
+source "$LIB_DIR/certs.sh"
+
+write_client_crl "${1:?usage: client-crl DIR}"

@@ -1,0 +1,5 @@
+ignored:
+  # Alpine package versions are left unpinned so every rebuild installs the
+  # release's current security updates; the base image itself is pinned by
+  # digest and Dependabot moves it.
+  - DL3018

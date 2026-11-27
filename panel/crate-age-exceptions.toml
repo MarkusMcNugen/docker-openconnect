@@ -1,0 +1,22 @@
+# Releases locked before they are 14 days old because each fixes a security
+# advisory, or is a release from the same project that the fix requires.
+# scripts/check-crate-age.py accepts exactly the versions listed; every other
+# release in Cargo.lock still needs 14 days.
+
+[[exception]]
+crate = "url"
+version = "2.5.9"
+advisory = "RUSTSEC-2026-0592"
+reason = "Url::origin() recurses without bound on nested blob: URLs and overflows the stack; webauthn-rs parses the origin a browser sends during a passkey sign-in."
+
+[[exception]]
+crate = "form_urlencoded"
+version = "1.2.3"
+advisory = "RUSTSEC-2026-0592"
+reason = "url 2.5.9, the fix, requires it; both are released together from the rust-url project."
+
+[[exception]]
+crate = "lettre"
+version = "0.11.24"
+advisory = "RUSTSEC-2026-0560"
+reason = "Fixes RUSTSEC-2026-0560 to 0565 in the SMTP transport email alerts use: a man-in-the-middle forging replies after STARTTLS, command injection through a bare CR or LF in a message, mail for a quoted local part going to another address, panics on a blank EHLO line or a display name with CR or LF, and a server exhausting memory with an endless reply."

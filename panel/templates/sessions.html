@@ -1,0 +1,35 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Sessions</h1><p class="sub">{{ summary }}</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+<section class="card">
+{% if rows.is_empty() %}
+<p class="card-b empty">No one is connected to the VPN. Sessions appear here as soon as a client connects.</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">User</th><th scope="col">Client</th><th scope="col">VPN address</th><th scope="col">From</th><th scope="col">Connected for</th><th scope="col">Traffic</th><th scope="col">Channel</th>{% if can_operate %}<th class="actions" scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+<tbody>
+{% for row in rows %}
+<tr>
+<td><div class="person"><span class="av" aria-hidden="true">{{ row.initials }}</span><div><div>{{ row.user }}</div><div class="cell-sub">{{ row.detail }}</div></div></div></td>
+<td class="wrap">{{ row.client }}</td>
+<td>{% for address in row.vpn %}<div class="mono">{{ address }}</div>{% endfor %}</td>
+<td><div class="mono">{{ row.remote }}</div>{% if let Some(place) = row.place %}<div class="cell-sub place"><img class="flag" src="{{ place.flag }}" alt="">{{ place.name }}</div>{% endif %}</td>
+<td class="wrap">{{ row.connected }}</td>
+<td><div class="traffic"><span><svg class="ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ arrow_down }}"></path></svg><span class="sr-only">Sent to the user: </span>{{ row.sent }}</span><span class="cell-sub"><svg class="ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ arrow_up }}"></path></svg><span class="sr-only">Received from the user: </span>{{ row.received }}</span></div></td>
+<td><span class="pill {{ row.channel_class }}" title="{{ row.channel_title }}">{{ row.channel }}</span></td>
+{% if can_operate %}<td class="actions"><form method="post" action="/sessions/end"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ row.id }}"><button class="btn btn-sm btn-icon" type="submit" title="End this session"><svg class="ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ end_icon }}"></path></svg><span class="sr-only">End session {{ row.id }} of {{ row.user }}</span></button></form></td>{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+{% if let Some(note) = countries_note %}<p class="card-b hint">{{ note }}</p>{% endif %}
+</section>
+{% include "country_credit.html" %}
+<p class="hint">The arrows show traffic sent to each user and received from them. The button at the end of a row ends that session: the device disconnects, and the user must sign in again to reconnect.</p>
+{% endblock %}

@@ -1,0 +1,173 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Bans</h1><p class="sub">{{ policy }}</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+<div class="grid-2">
+<section class="card" aria-labelledby="banned-title">
+<div class="card-h"><h2 class="card-t" id="banned-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ ban_icon }}"></path></svg>Banned addresses</h2>{% if banned.is_empty() %}<span class="pill pill-mute">None</span>{% else %}<span class="pill pill-bad">{{ banned.len() }} banned</span>{% endif %}</div>
+{% if banned.is_empty() %}
+<p class="card-b empty">{% if bans_off %}ocserv does not ban addresses while bans are off.{% else %}No address is banned right now.{% endif %}</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">Address</th><th scope="col">Points</th><th scope="col">Time left</th>{% if can_operate %}<th class="actions" scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+<tbody>
+{% for row in banned %}
+<tr>
+<td class="mono">{{ row.address }}</td>
+<td>{{ row.score }}</td>
+<td class="wrap">{{ row.time_left }}</td>
+{% if can_operate %}<td class="actions"><form method="post" action="/bans/unban"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="address" value="{{ row.address }}"><button class="btn btn-sm" type="submit">Unban<span class="sr-only"> {{ row.address }}</span></button></form></td>{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+<section class="card" aria-labelledby="points-title">
+<div class="card-h"><h2 class="card-t" id="points-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ points_icon }}"></path></svg>Addresses with ban points</h2><span class="pill pill-mute">Below the ban score</span></div>
+{% if points.is_empty() %}
+<p class="card-b empty">No other address has ban points.</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">Address</th><th scope="col">Points</th><th scope="col" class="meter-col">Toward a ban</th></tr></thead>
+<tbody>
+{% for row in points %}
+<tr>
+<td class="mono">{{ row.address }}</td>
+<td>{{ row.score }}</td>
+<td><svg class="meter" role="img" aria-label="{{ row.label }}"><rect class="meter-track" width="100%" height="100%" rx="4"></rect><rect class="meter-fill" width="{{ row.share }}%" height="100%" rx="4"></rect></svg></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+</div>
+<section class="card" aria-labelledby="blocks-title">
+<div class="card-h"><h2 class="card-t" id="blocks-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ block_icon }}"></path></svg>Firewall blocklist</h2>{% if blocks.is_empty() %}<span class="pill pill-mute">None</span>{% else %}<span class="pill pill-bad">{{ blocks.len() }} blocked</span>{% endif %}</div>
+<div class="card-b stack">
+<p class="empty">{{ auto_block }} Loopback and the Docker host are never blocked.</p>
+{% if can_operate %}
+<form class="block-form" method="post" action="/bans/block">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="field"><label class="label" for="block-network">Address or network</label><input class="input mono" id="block-network" name="network" placeholder="203.0.113.7 or 2001:db8::/64" autocapitalize="none" spellcheck="false" required></div>
+<div class="field"><label class="label" for="block-duration">For</label><select class="input" id="block-duration" name="duration"><option value="1">1 hour</option><option value="24" selected>1 day</option><option value="168">1 week</option><option value="lifted">Until lifted</option></select></div>
+<div class="field"><span class="label" aria-hidden="true">&nbsp;</span><button class="btn btn-danger" type="submit">Block</button></div>
+</form>
+{% endif %}
+</div>
+{% if !blocks.is_empty() %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">Address or network</th><th scope="col">Lifts</th><th scope="col">Why</th>{% if can_operate %}<th class="actions" scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+<tbody>
+{% for row in blocks %}
+<tr>
+<td class="mono">{{ row.network }}</td>
+<td class="wrap">{{ row.lifts }}</td>
+<td class="wrap">{{ row.reason }}</td>
+{% if can_operate %}<td class="actions"><div class="act-row">{% if row.timed %}<form method="post" action="/bans/keep"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="network" value="{{ row.network }}"><button class="btn btn-sm" type="submit">Keep<span class="sr-only"> {{ row.network }} blocked until lifted</span></button></form>{% endif %}<form method="post" action="/bans/unblock"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="network" value="{{ row.network }}"><button class="btn btn-sm" type="submit">Lift<span class="sr-only"> the block of {{ row.network }}</span></button></form></div></td>{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+<div class="grid-2">
+<section class="card" aria-labelledby="countries-title">
+<div class="card-h"><h2 class="card-t" id="countries-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ countries.icon }}"></path></svg>Countries</h2><span class="pill {{ countries.pill.0 }}">{{ countries.pill.1 }}</span></div>
+<div class="card-b stack">
+{% if let Some(problem) = countries.problem %}<div class="callout callout-warn" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ countries.warning_icon }}"></path></svg><span>{{ problem }}</span></div>{% endif %}
+<p class="empty">Block drops new connections from the listed countries to the VPN, this panel and the user portal; allow drops them from every other country. Private addresses and PANEL_LAN_NETWORKS always pass, and open connections stay.</p>
+{% if countries.can_change %}
+<form class="stack" method="post" action="/bans/countries">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{% if !countries.list_locked %}<input type="hidden" name="list" value="1">{% endif %}
+<div class="field-row">
+<div class="field{% if countries.rule_locked %} field-locked{% endif %}"><label class="label" for="country-rule">Rule</label><select class="input" id="country-rule" name="rule"{% if countries.rule_locked %} disabled{% endif %}><option value="off"{% if countries.rule == "off" %} selected{% endif %}>Off</option><option value="block"{% if countries.rule == "block" %} selected{% endif %}>Block the listed countries</option><option value="allow"{% if countries.rule == "allow" %} selected{% endif %}>Allow only the listed countries</option></select>{% if countries.rule_locked %}<p class="hint"><span class="mono">COUNTRY_RULE</span>. Set by the container's environment</p>{% endif %}</div>
+{% if !countries.list_locked %}<div class="field"><label class="label" for="country-add">Add a country</label><select class="input" id="country-add" name="country"><option value="">Choose a country</option>{% for country in countries.others %}<option value="{{ country.code }}">{{ country.name }}</option>{% endfor %}</select></div>{% endif %}
+</div>
+<fieldset class="field{% if countries.list_locked %} field-locked{% endif %}"><legend class="label">Listed countries</legend>
+{% if countries.listed.is_empty() %}<p class="empty">None yet.</p>{% else %}<div class="chips">{% for country in countries.listed %}<label class="chip"><input type="checkbox" name="country" value="{{ country.code }}" checked{% if countries.list_locked %} disabled{% endif %}><img class="flag" src="{{ country.flag }}" alt=""><span>{{ country.name }}</span></label>{% endfor %}</div>{% endif %}
+{% if countries.list_locked %}<p class="hint"><span class="mono">COUNTRIES</span>. Set by the container's environment</p>{% else if !countries.listed.is_empty() %}<p class="hint">Clear a country to take it off the list.</p>{% endif %}
+</fieldset>
+{% if let Some(suggested) = countries.suggestion %}{% if !countries.list_locked %}<div class="callout" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ countries.icon }}"></path></svg><span>{{ suggested.share }}% of the failed sign-ins in {{ countries.period }} came from {{ suggested.name }}, where no VPN user connected from.</span><button class="btn btn-sm" type="submit" name="country" value="{{ suggested.code }}"><img class="flag" src="{{ suggested.flag }}" alt="">Add {{ suggested.name }}</button></div>{% endif %}{% endif %}
+<div><button class="btn btn-primary" type="submit">Save and apply</button></div>
+</form>
+{% else %}
+<p class="empty">Rule: {{ countries.rule_text }}. Listed: {% if countries.listed.is_empty() %}none{% else %}{% for country in countries.listed %}<span class="place"><img class="flag" src="{{ country.flag }}" alt="">{{ country.name }}</span>{% if !loop.last %}, {% endif %}{% endfor %}{% endif %}.</p>
+{% endif %}
+</div>
+</section>
+<section class="card" aria-labelledby="by-country-title">
+<div class="card-h"><h2 class="card-t" id="by-country-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ points_icon }}"></path></svg>Failed sign-ins by country</h2><span class="pill pill-mute">In {{ countries.period }}</span></div>
+{% if countries.failed.is_empty() %}
+<p class="card-b empty">No failed sign-ins in {{ countries.period }}.</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">Country</th><th scope="col">Failed</th><th scope="col" class="meter-col"><span class="sr-only">Against the most</span></th></tr></thead>
+<tbody>
+{% for bar in countries.failed %}
+<tr>
+<td><span class="place">{% if let Some(flag) = bar.flag %}<img class="flag" src="{{ flag }}" alt="">{% endif %}{{ bar.label }}</span>{% if bar.listed %} <span class="pill pill-mute">Listed</span>{% endif %}</td>
+<td>{{ bar.count }}</td>
+<td><svg class="meter" aria-hidden="true"><rect class="meter-track" width="100%" height="100%" rx="4"></rect><rect class="meter-fill" width="{{ bar.share }}%" height="100%" rx="4"></rect></svg></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+</div>
+<section class="card" aria-labelledby="database-title">
+<div class="card-h"><h2 class="card-t" id="database-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ database.icon }}"></path></svg>Country database</h2><span class="pill pill-mute">{% if database.busy %}Downloading{% else %}{{ database.name }}{% endif %}</span></div>
+<div class="card-b stack">
+{% if let Some(last) = database.last %}<div class="callout {{ last.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ last.icon }}"></path></svg><span>{{ last.text }}</span></div>{% endif %}
+<p class="empty">{% if let Some(why) = database.unread %}No country database could be read: {{ why }}.{% else %}{{ database.name }}, built {{ database.built }}.{% endif %} {% if database.account.is_empty() %}DB-IP Lite comes with the image. With the key of a free MaxMind account, the panel downloads MaxMind GeoLite2 Country instead, and again every three days.{% else %}MaxMind account {{ database.account }}{% if database.from_env %}, set by the container's environment{% endif %}: the panel downloads GeoLite2 again every three days.{% endif %}</p>
+{% if database.busy %}<p class="empty">A GeoLite2 download is under way. Reload this page to see how it ends.</p>{% endif %}
+{% if database.can_change %}
+<form class="rule-form" method="post" action="/bans/maxmind">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="field"><label class="label" for="maxmind-account">MaxMind account ID</label><input class="input mono" id="maxmind-account" name="account" inputmode="numeric" autocomplete="off" spellcheck="false" value="{{ database.account }}" required></div>
+<div class="field"><label class="label" for="maxmind-license">License key</label><input class="input mono" id="maxmind-license" name="license" type="password" autocomplete="off" spellcheck="false" required></div>
+<div class="field"><span class="label" aria-hidden="true">&nbsp;</span><button class="btn btn-primary" type="submit">{% if database.account.is_empty() %}Save and download{% else %}Replace the key{% endif %}</button></div>
+</form>
+{% if !database.account.is_empty() %}<form method="post" action="/bans/maxmind/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Remove the key</button></form>{% endif %}
+{% endif %}
+</div>
+</section>
+<section class="card" aria-labelledby="locations-title">
+<div class="card-h"><h2 class="card-t" id="locations-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ locations.icon }}"></path></svg>Location checks</h2><span class="pill {{ locations.pill.0 }}">{{ locations.pill.1 }}</span></div>
+<div class="card-b stack">
+{% if let Some(last) = locations.last %}<div class="callout {{ last.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ last.icon }}"></path></svg><span>{{ last.text }}</span></div>{% endif %}
+<p class="empty">Each sign-in to the VPN and this panel is scored from 0 to 100 against where and how the account signed in before: a place far from every usual one, a move faster than travel, a session open far away, and a network, country, device or hour of the day it has not used. From 50 the sign-in goes through with an alert; from 80 it is refused, with an alert, once the account has 30 days and 10 sign-ins behind it and is not on vacation. A check that cannot run lets the sign-in through.</p>
+<p class="empty">{{ locations.data }}</p>
+{% if locations.can_change %}
+<form class="stack" method="post" action="/bans/locations">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{% if locations.on_locked %}<input type="hidden" name="on" value="{% if locations.on %}on{% else %}off{% endif %}">{% endif %}
+{% if locations.refresh_locked %}<input type="hidden" name="refresh_hours" value="{{ locations.refresh_hours }}">{% endif %}
+<div class="field-row">
+<div class="field{% if locations.on_locked %} field-locked{% endif %}"><label class="label" for="locations-on">Checks</label><select class="input" id="locations-on"{% if locations.on_locked %} disabled{% else %} name="on"{% endif %}><option value="off"{% if !locations.on %} selected{% endif %}>Off</option><option value="on"{% if locations.on %} selected{% endif %}>On</option></select>{% if locations.on_locked %}<p class="hint"><span class="mono">LOCATION_CHECKS</span>. Set by the container's environment</p>{% endif %}</div>
+<div class="field{% if locations.refresh_locked %} field-locked{% endif %}"><label class="label" for="locations-refresh">Look for new data every<span class="sr-only"> this many hours</span></label><div class="input-unit"><input class="input" id="locations-refresh" value="{{ locations.refresh_hours }}" inputmode="numeric" autocomplete="off" required{% if locations.refresh_locked %} disabled{% else %} name="refresh_hours"{% endif %}><span class="unit" aria-hidden="true">h</span></div>{% if locations.refresh_locked %}<p class="hint"><span class="mono">LOCATION_REFRESH_HOURS</span>. Set by the container's environment</p>{% else %}<p class="hint">1 to 168 hours.</p>{% endif %}</div>
+</div>
+<div><button class="btn btn-primary" type="submit">Save</button></div>
+</form>
+{% else %}
+<p class="empty">{% if locations.on %}On, looking for new data every {{ locations.refresh_hours }} h.{% else %}Off.{% endif %} Owners change the location checks.</p>
+{% endif %}
+{% if locations.credit == "dbip" %}<p class="hint">Places and networks: <a href="https://db-ip.com">IP Geolocation by DB-IP</a>.</p>{% else if locations.credit == "maxmind" %}<p class="hint">Places and networks: this product includes GeoLite2 data created by MaxMind, available from <a href="https://www.maxmind.com">maxmind.com</a>.</p>{% endif %}
+</div>
+</section>
+{% include "country_credit.html" %}
+<p class="hint">Unban lifts the ban and clears the address's points at once. ocserv counts an IPv6 address as its whole /64 network, which is the address shown. A block drops everything from the address before ocserv sees it, and disconnects its VPN sessions; Keep makes a timed block stay until it is lifted.</p>
+{% endblock %}

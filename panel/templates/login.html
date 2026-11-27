@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="signin">
+<section class="card signin-card" aria-labelledby="signin-title">
+<div class="signin-head">
+<img class="logo-lg" src="{{ page.logo }}" alt="">
+<h1 id="signin-title">OpenConnect admin</h1>
+<p>{{ host }}</p>
+</div>
+{% if let Some(error) = error %}
+<div class="callout callout-bad" role="alert"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning }}"></path></svg><span>{{ error }}</span></div>
+{% endif %}
+<form class="stack" method="post" action="/login">
+<div class="field"><label class="label" for="name">Admin name</label><input class="input" id="name" name="name" autocomplete="username" autocapitalize="none" spellcheck="false" required value="{{ name }}"></div>
+<div class="field"><label class="label" for="password">Password</label><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
+<button class="btn btn-primary btn-block" type="submit">Sign in</button>
+</form>
+<p class="signin-foot">Outside the local networks this panel trusts, a second factor follows your password.</p>
+</section>
+</main>
+{% endblock %}

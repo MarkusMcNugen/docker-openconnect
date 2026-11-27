@@ -1,0 +1,90 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Your account</h1><p class="sub">Your password, your second factors and where you are signed in to this panel</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+<section class="card" aria-labelledby="account-title">
+<div class="card-h"><h2 class="card-t" id="account-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ id_icon }}"></path></svg>Account</h2></div>
+<dl class="card-b kv">
+<dt>Name</dt><dd>{{ name }}</dd>
+<dt>Role</dt><dd>{{ role }}: {{ role_scope }}</dd>
+<dt>Added</dt><dd><time datetime="{{ added.iso }}" data-local-time="date">{{ added.text }} UTC</time></dd>
+<dt>Last sign-in</dt><dd>{% if let Some(last) = last_login %}<time datetime="{{ last.iso }}" data-local-time="date">{{ last.text }} UTC</time>{% else %}Never{% endif %}</dd>
+</dl>
+</section>
+<section class="card" aria-labelledby="password-title">
+<div class="card-h"><h2 class="card-t" id="password-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ key_icon }}"></path></svg>Password</h2></div>
+<div class="card-b stack">
+<p class="empty">Changing your password signs you out of this panel everywhere else.</p>
+<div><a class="btn btn-primary" href="/password">Change password</a></div>
+</div>
+</section>
+<section class="card" aria-labelledby="app-title">
+<div class="card-h"><h2 class="card-t" id="app-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ phone_icon }}"></path></svg>Authenticator app</h2></div>
+<div class="card-b stack">
+{% if authenticator_app %}
+<p class="empty">Signing in from outside the networks this panel trusts takes your password and then a six-digit code from your authenticator app{% if !passkeys.is_empty() %} or one of your passkeys{% endif %}. To move to a new phone or app, replace it; replacing it needs a recent sign-in.</p>
+<div><a class="btn" href="/enroll">Replace the app</a></div>
+{% else if passkeys.is_empty() %}
+<p class="empty">Signing in from outside the networks this panel trusts needs an authenticator app or a passkey, and you have neither yet.</p>
+<div><a class="btn btn-primary" href="/enroll">Set up an authenticator app</a></div>
+{% else %}
+<p class="empty">You sign in from outside the networks this panel trusts with a passkey. An authenticator app as well lets you sign in when none of your passkey devices is at hand.</p>
+<div><a class="btn" href="/enroll">Set up an authenticator app</a></div>
+{% endif %}
+</div>
+</section>
+<section class="card" aria-labelledby="passkeys-title">
+<div class="card-h"><h2 class="card-t" id="passkeys-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ passkey_icon }}"></path></svg>Passkeys</h2>{% if passkeys_unavailable.is_none() %}<span class="pill {% if passkeys.is_empty() %}pill-mute{% else %}pill-info{% endif %}">{% if passkeys.is_empty() %}None{% else %}{{ passkeys.len() }}{% endif %}</span>{% endif %}</div>
+{% if let Some(reason) = passkeys_unavailable %}
+<p class="card-b empty">{{ reason }}</p>
+{% else %}
+<p class="card-b empty">After your password, a passkey can take the place of the authenticator app's code when you sign in from outside the networks this panel trusts. Your device unlocks it with its PIN, fingerprint or face. Removing one needs a recent sign-in.</p>
+{% if !passkeys.is_empty() %}
+<ul class="channel-list key-list">
+{% for key in passkeys %}
+<li class="channel-item">
+<div class="channel"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ passkey_icon }}"></path></svg><div class="channel-text"><div class="channel-kind">{{ key.name }}</div><div class="channel-status"><span class="cell-sub">Added <time datetime="{{ key.added.iso }}" data-local-time="date">{{ key.added.text }} UTC</time></span><span class="cell-sub">{% if let Some(used) = key.last_used %}Last used <time datetime="{{ used.iso }}" data-local-time="date">{{ used.text }} UTC</time>{% else %}Not used yet{% endif %}</span></div></div></div>
+<div class="act-row"><form method="post" action="/account/passkeys/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="name" value="{{ key.name }}"><button class="btn btn-sm" type="submit">Remove<span class="sr-only"> the passkey {{ key.name }}</span></button></form></div>
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+<div class="card-b stack">
+{% if passkey_room %}
+<form class="rule-form" data-passkey-add hidden>
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="field field-wide"><label class="label" for="passkey-name">Name for a new passkey</label><input class="input" id="passkey-name" name="name" maxlength="{{ name_chars }}" placeholder="Phone" autocomplete="off" required></div>
+<div class="field"><button class="btn btn-primary" type="submit">Add a passkey</button></div>
+</form>
+<div class="callout callout-bad" role="alert" data-passkey-error hidden><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning }}"></path></svg><span></span></div>
+<noscript><p class="empty">Adding a passkey needs JavaScript, which this browser has turned off.</p></noscript>
+{% else %}
+<p class="empty">You have {{ max_passkeys }} passkeys, the most an account may have. Remove one to add another.</p>
+{% endif %}
+</div>
+{% endif %}
+</section>
+{% if locations_on %}
+<section class="card" aria-labelledby="vacation-title">
+<div class="card-h"><h2 class="card-t" id="vacation-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ location_icon }}"></path></svg>Vacation</h2>{% if let Some(until) = vacation %}<span class="pill pill-info">Through {{ until }}</span>{% else %}<span class="pill pill-mute">Off</span>{% endif %}</div>
+<div class="card-b stack">
+<p class="empty">The location checks refuse a sign-in to this panel from somewhere that does not fit where you usually sign in. On vacation, such a sign-in goes through with an alert instead, through the last day you pick, which may be as late as {{ vacation_to }}.</p>
+<form class="rule-form" method="post" action="/vacation">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="admin"><input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="back" value="account">
+<div class="field"><label class="label" for="vacation-until">Last day</label><input class="input" id="vacation-until" name="until" type="date" min="{{ vacation_from }}" max="{{ vacation_to }}"{% if let Some(until) = vacation %} value="{{ until }}"{% endif %} required></div>
+<div class="field"><span class="label" aria-hidden="true">&nbsp;</span><button class="btn btn-primary" type="submit">{% if vacation.is_some() %}Change the vacation{% else %}Start a vacation{% endif %}</button></div>
+</form>
+{% if vacation.is_some() %}<form method="post" action="/vacation"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="admin"><input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="back" value="account"><input type="hidden" name="until" value=""><button class="btn" type="submit">End the vacation</button></form>{% endif %}
+</div>
+</section>
+{% endif %}
+<section class="card" aria-labelledby="sessions-title">
+<div class="card-h"><h2 class="card-t" id="sessions-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ laptop_icon }}"></path></svg>Where you are signed in</h2></div>
+<div class="card-b stack">
+<p class="empty">{{ elsewhere }}</p>
+{% if other_sessions > 0 %}<form method="post" action="/account/sessions/end"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Sign out everywhere else</button></form>{% endif %}
+</div>
+</section>
+{% endblock %}

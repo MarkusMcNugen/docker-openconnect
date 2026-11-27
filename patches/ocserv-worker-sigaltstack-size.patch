@@ -1,0 +1,53 @@
+--- a/src/worker-misc.c	2026-11-25 19:52:07.900026900 -0500
++++ b/src/worker-misc.c	2026-11-25 19:52:27.652173100 -0500
+@@ -223,25 +223,47 @@
+ 	return 0;
+ }
+ 
++#include <sys/auxv.h>
++
++/* The signal stack size: at least 64 KiB and four times the kernel's
++ * AT_MINSIGSTKSZ, rounded up to whole pages. The C library's SIGSTKSZ can be
++ * smaller than the signal frame of CPUs with large register state, and then
++ * sigaltstack() fails with ENOMEM. */
++static size_t ocsigstksz(void)
++{
++	size_t size = SIGSTKSZ;
++	size_t page = (size_t)getpagesize();
++#ifdef AT_MINSIGSTKSZ
++	size_t minimum = (size_t)getauxval(AT_MINSIGSTKSZ) * 4;
++
++	if (minimum > size)
++		size = minimum;
++#endif
++	if (size < 65536)
++		size = 65536;
++	return (size + page - 1) & ~(page - 1);
++}
++
+ void ocsigaltstack(struct worker_st *ws)
+ {
+ #if defined(HAVE_SIGALTSTACK) && defined(HAVE_POSIX_MEMALIGN)
+ 	stack_t ss;
++	size_t size = ocsigstksz();
+ 	int e;
+ 
+ 	/* setup the stack for signal handlers */
+-	if (posix_memalign((void **)&ss.ss_sp, getpagesize(), SIGSTKSZ) != 0) {
++	if (posix_memalign((void **)&ss.ss_sp, getpagesize(), size) != 0) {
+ 		oclog(ws, LOG_ERR,
+ 		      "could not allocate memory for signal stack");
+ 		exit(EXIT_FAILURE);
+ 	}
+-	if (mprotect(ss.ss_sp, SIGSTKSZ, PROT_READ | PROT_WRITE) == -1) {
++	if (mprotect(ss.ss_sp, size, PROT_READ | PROT_WRITE) == -1) {
+ 		e = errno;
+ 		free(ss.ss_sp);
+ 		oclog(ws, LOG_ERR, "mprotect: %s", strerror(e));
+ 		exit(EXIT_FAILURE);
+ 	}
+-	ss.ss_size = SIGSTKSZ;
++	ss.ss_size = size;
+ 	ss.ss_flags = 0;
+ 	if (sigaltstack(&ss, NULL) == -1) {
+ 		e = errno;

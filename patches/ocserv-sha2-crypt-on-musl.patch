@@ -1,0 +1,13 @@
+--- a/meson.build
++++ b/meson.build
+@@ -277,7 +277,9 @@
+
+ proc_fs = fs.exists('/proc/self/exe')
+
+-try_sha2_crypt = cc.has_header('gnu/libc-version.h')
++# ocpasswd writes SHA-256-crypt hashes, which musl's crypt() computes as
++# glibc's does.
++try_sha2_crypt = true
+
+ have_sighandler_t  = cc.has_type('sighandler_t',
+   prefix: '#include <sys/types.h>\n#include <signal.h>')

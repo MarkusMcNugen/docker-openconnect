@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /wiki
+    schedule:
+      interval: weekly
+  # The panel's crates. The cooldown matches the CI check that every locked
+  # release is at least 14 days old.
+  - package-ecosystem: cargo
+    directory: /panel
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14

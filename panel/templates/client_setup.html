@@ -1,0 +1,31 @@
+<section class="card" aria-labelledby="setup-title" data-tab-set>
+<div class="card-h"><h2 class="card-t" id="setup-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.laptop }}"></path></svg>Client setup</h2>
+{% if setup.cisco %}<div class="tabs" role="tablist" aria-label="Clients" data-tabs hidden><button class="tab on" type="button" role="tab" id="tab-openconnect" aria-controls="setup-openconnect" aria-selected="true">OpenConnect</button><button class="tab" type="button" role="tab" id="tab-cisco" aria-controls="setup-cisco" aria-selected="false" tabindex="-1">Cisco Secure Client</button></div>{% endif %}</div>
+<div class="card-b setup" id="setup-openconnect"{% if setup.cisco %} role="tabpanel" aria-labelledby="tab-openconnect"{% endif %}>
+<h3 class="setup-t">OpenConnect</h3>
+<pre class="code">{{ setup.command }}</pre>
+<ol class="steps">
+<li>Install an OpenConnect client:
+<ul class="clients">
+<li>Windows: the <a href="https://www.infradead.org/openconnect-gui/download/openconnect-gui-1.6.2-win64.exe">OpenConnect GUI 1.6.2 installer</a>, from the <a href="https://gui.openconnect-vpn.net/download/">OpenConnect GUI project</a></li>
+<li>Android: the <a href="https://f-droid.org/repo/net.openconnect_vpn.android_1120.apk">OpenConnect 1.12 app</a>, from <a class="nowrap" href="https://f-droid.org/packages/net.openconnect_vpn.android/">F-Droid</a></li>
+<li>macOS: <span class="mono">brew install openconnect</span>, with <a href="https://formulae.brew.sh/formula/openconnect">Homebrew</a></li>
+<li>Linux: your distribution's <span class="mono">openconnect</span> package, or <span class="mono">NetworkManager-openconnect</span> to connect from the desktop's network settings; see <a href="https://www.infradead.org/openconnect/">openconnect</a></li>
+</ul></li>
+<li>Run the command, or add the server <span class="mono">{{ setup.server }}</span> in the client.</li>
+<li>{{ setup.sign_in }}</li>
+<li>Check that the client shows the same server key pin as this page before you trust it.</li>
+</ol>
+</div>
+{% if setup.cisco %}
+<div class="card-b setup" id="setup-cisco" role="tabpanel" aria-labelledby="tab-cisco">
+<h3 class="setup-t">Cisco Secure Client</h3>
+<ol class="steps">
+<li>Install Cisco Secure Client from the <a href="https://apps.apple.com/app/cisco-secure-client/id1135064690">App Store</a> on an iPhone, iPad or Mac, or from <a href="https://play.google.com/store/apps/details?id=com.cisco.anyconnect.vpn.android.avf">Google Play</a> on Android.</li>
+<li>Add a connection to <span class="mono">{{ setup.server }}</span>.</li>
+<li>{{ setup.sign_in }}</li>
+<li>Cisco Secure Client does not check the pin. It trusts the server's certificate only when the device trusts the authority that issued it, so when this container issued the certificate itself, install that authority's certificate, ca.pem, on the device first.</li>
+</ol>
+</div>
+{% endif %}
+</section>

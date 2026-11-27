@@ -1,0 +1,30 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Onboarding kit for {{ user }}</h1><p class="sub">Everything {{ user }} needs to connect to the VPN, on one printable page</p></div>
+<div class="kit-actions"><button class="btn" type="button" data-print hidden><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.printer }}"></path></svg>Print</button><a class="btn btn-primary" href="/users"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.done }}"></path></svg>Done</a></div></div>
+<div class="callout callout-warn" role="note"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.warning }}"></path></svg><span>{{ warning }}</span></div>
+<div class="{% if key.is_some() %}grid-2{% else %}kit-one{% endif %}">
+<section class="card" aria-labelledby="connection-title">
+<div class="card-h"><h2 class="card-t" id="connection-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.connection }}"></path></svg>Connection</h2></div>
+<div class="card-b"><dl class="kv">
+<dt>Server</dt><dd class="mono">{{ address }}</dd>
+{% if let Some(url) = setup.secret_url %}<dt>Address with its secret</dt><dd class="mono wrap-any">{{ url }}</dd>
+{% endif %}<dt>Server key pin</dt><dd class="mono wrap-any">{{ pin }}</dd>
+<dt>User name</dt><dd class="mono">{{ user }}</dd>
+<dt>Password</dt><dd>{% if let Some(password) = password %}<span class="copy-row"><span class="mono" id="kit-password">{{ password }}</span><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="kit-password" aria-label="Copy the password" title="Copy the password" hidden><svg class="ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.copy }}"></path></svg></button></span>{% else %}Unchanged{% endif %}</dd>
+<dt>{{ groups_label }}</dt><dd>{{ groups }}</dd>
+</dl></div>
+</section>
+{% if let Some(key) = key %}
+<section class="card" aria-labelledby="authenticator-title">
+<div class="card-h"><h2 class="card-t" id="authenticator-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.phone }}"></path></svg>Authenticator</h2></div>
+<div class="card-b enroll-key">
+{{ key.qr|safe }}
+<div class="kit-key"><span class="label">Or type this key</span><span class="mono key-text">{{ key.grouped }}</span><p class="hint">Standard time-based codes: six digits and a new one every 30 s, as every authenticator app makes.</p></div>
+</div>
+</section>
+{% endif %}
+</div>
+{% include "client_setup.html" %}
+<p class="hint kit-foot">Keep this page private: with it, anyone can sign in to the VPN as {{ user }}.</p>
+{% endblock %}

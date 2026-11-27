@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="shell">
+<nav class="sidebar" aria-label="Main">
+<div class="brand"><img src="{{ page.logo }}" alt=""><div><div class="brand-name">OpenConnect</div><div class="brand-sub">Image {{ shell.version }} with <span class="nowrap">ocserv {{ shell.ocserv_version }}</span></div></div></div>
+{% for group in shell.nav %}
+<div class="nav-label">{{ group.label }}</div>
+{% for item in group.items %}
+<a class="nav-item" href="{{ item.href }}"{% if item.current %} aria-current="page"{% endif %}><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ item.icon }}"></path></svg><span>{{ item.label }}</span></a>
+{% endfor %}
+{% endfor %}
+<div class="side-foot">
+<a class="nav-item who" href="/account"><span class="av" aria-hidden="true">{{ shell.initials }}</span><span class="who-text"><span class="who-name">{{ shell.admin }}</span><span class="who-sub">{{ shell.role }}</span></span></a>
+<form method="post" action="/logout"><button class="nav-item" type="submit"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ shell.sign_out }}"></path></svg>Sign out</button></form>
+</div>
+</nav>
+<div class="main">
+<header class="topbar">
+<div class="topbar-end">
+<button class="btn btn-ghost btn-icon" id="theme-toggle" type="button" aria-label="Switch the theme" title="Switch the theme"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ shell.sun }}"></path></svg></button>
+</div>
+</header>
+<main class="content">
+{% block content %}{% endblock %}
+</main>
+</div>
+</div>
+{% endblock %}

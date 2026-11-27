@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="signin">
+<section class="card signin-card" aria-labelledby="signin-title">
+<div class="signin-head">
+<img class="logo-lg" src="{{ page.logo }}" alt="">
+<h1 id="signin-title">OpenConnect VPN</h1>
+<p>{{ host }}</p>
+</div>
+{% if let Some(error) = error %}
+<div class="callout callout-bad" role="alert"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning }}"></path></svg><span>{{ error }}</span></div>
+{% endif %}
+{% if code_step %}
+<form class="stack" method="post" action="/code">
+<div class="field"><label class="label" for="code">Code from your authenticator app</label><input class="input mono" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
+<button class="btn btn-primary btn-block" type="submit">Verify</button>
+</form>
+<p class="signin-foot">The VPN asks for this code too.</p>
+{% else %}
+<form class="stack" method="post" action="/login">
+<div class="field"><label class="label" for="name">User name</label><input class="input" id="name" name="name" autocomplete="username" autocapitalize="none" spellcheck="false" required value="{{ name }}"></div>
+<div class="field"><label class="label" for="password">Password</label><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
+<button class="btn btn-primary btn-block" type="submit">Sign in</button>
+</form>
+<p class="signin-foot">Use the same user name and password as for the VPN.</p>
+{% endif %}
+</section>
+</main>
+{% endblock %}

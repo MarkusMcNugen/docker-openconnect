@@ -1,0 +1,31 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Settings</h1><p class="sub">The VPN server's settings that the container's environment leaves to this panel</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+{% if let Some(sections) = sections %}
+{% if pending > 0 %}<div class="callout callout-warn" role="note"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning_icon }}"></path></svg><span>{{ pending_text }}</span></div>{% endif %}
+<form class="stack" method="post" action="/settings">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{% for section in sections %}
+<section class="card" aria-labelledby="{{ section.id }}">
+<div class="card-h"><h2 class="card-t" id="{{ section.id }}">{{ section.title }}</h2><span class="cell-sub">{{ section.note }}</span></div>
+<div class="card-b form-grid">
+{% for field in section.fields %}
+<div class="field{% if !field.open %} field-locked{% endif %}">
+<label class="label" for="{{ field.id }}">{{ field.label }}{% if !field.unit.is_empty() %}<span class="sr-only"> in {{ field.unit }}</span>{% endif %}</label>
+{% if let Some(choices) = field.choices %}<select class="input" id="{{ field.id }}" name="{{ field.name }}"{% if !field.open %} disabled{% endif %}>{% for choice in choices %}<option value="{{ choice.value }}"{% if choice.selected %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}</select>{% else %}{% if !field.unit.is_empty() %}<div class="input-unit">{% endif %}<input class="input" id="{{ field.id }}" name="{{ field.name }}" value="{{ field.value }}"{% if field.numeric %} inputmode="numeric"{% else if field.unit == "Mbps" %} inputmode="decimal"{% endif %} autocomplete="off" spellcheck="false"{% if !field.open %} disabled{% endif %}>{% if !field.unit.is_empty() %}<span class="unit" aria-hidden="true">{{ field.unit }}</span></div>{% endif %}{% endif %}
+<p class="hint">{% if field.pending %}<span class="pill pill-warn">Waits for the next start</span> {% endif %}<span class="mono">{{ field.name }}</span>{% if let Some(locked) = field.locked %}. {{ locked }}{% else %}{% if !field.hint.is_empty() %}. {{ field.hint }}{% endif %}{% endif %}</p>
+</div>
+{% endfor %}
+</div>
+</section>
+{% endfor %}
+<div><button class="btn btn-primary" type="submit">Save settings</button></div>
+</form>
+<p class="hint">A setting given in the container's environment, in OCSERV_CONF_* or in /config/ocserv-extra.conf wins over this page, so its field is greyed out; remove it there to manage it here. An empty field returns the setting to the image's default. Changes that ocserv can take at once are applied with a reload and reach new connections; the others wait for the next container start.</p>
+{% else %}
+<section class="card"><p class="card-b empty">The server runs its own configuration file (POWER_USER or a 1.x configuration), so its settings are changed in that file, not here.</p></section>
+{% endif %}
+{% endblock %}

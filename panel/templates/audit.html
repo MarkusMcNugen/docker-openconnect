@@ -1,0 +1,29 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Audit log</h1><p class="sub">Every sign-in, refusal and change in this panel and the user portal, newest first</p></div></div>
+<section class="card">
+{% if rows.is_empty() %}
+<p class="card-b empty">Nothing is recorded yet.</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">Time</th><th scope="col">Who</th><th scope="col">From</th><th scope="col">Action</th><th scope="col">Result</th><th scope="col">Detail</th></tr></thead>
+<tbody>
+{% for row in rows %}
+<tr>
+<td><time datetime="{{ row.stamp }}" data-local-time="date">{{ row.clock }} UTC</time></td>
+<td class="wrap"><div class="audit-who">{{ row.actor }}</div>{% if let Some(note) = row.actor_note %}<div class="cell-sub">{{ note }}</div>{% endif %}</td>
+<td class="mono">{{ row.from }}</td>
+<td class="mono">{{ row.action }}</td>
+<td><span class="pill {{ row.result_class }}">{{ row.result }}</span></td>
+<td class="wrap audit-detail">{{ row.detail }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+{% if newer.is_some() || older.is_some() %}<nav class="pager" aria-label="Audit log pages">{% if let Some(newer) = newer %}<a class="btn btn-sm" href="{{ newer }}">Newest entries</a>{% endif %}{% if let Some(older) = older %}<a class="btn btn-sm" href="{{ older }}">Older entries</a>{% endif %}</nav>{% endif %}
+<p class="hint">Each entry is written to /config/panel/audit.log before the panel answers, and copied to the container log. Who is the admin or VPN user who acted, or the name someone tried to sign in as. Times are in your browser's time zone.</p>
+{% endblock %}

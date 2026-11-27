@@ -1,0 +1,48 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><p class="crumb"><a href="{{ back }}">{{ back_label }}</a></p><h1 class="h1">{{ heading }}</h1></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+{% if readable %}
+<div class="callout"><span>{{ intro }}</span></div>
+{% else %}
+<div class="callout"><span>The VPN server's configuration names no directory for these settings, so ocserv would not read them. They can be viewed but not saved.</span></div>
+{% endif %}
+<section class="card" aria-labelledby="settings-title">
+<div class="card-h"><h2 class="card-t" id="settings-title">Settings</h2>{% if has_file %}<span class="pill pill-info">Own settings</span>{% else %}<span class="pill pill-mute">Nothing set</span>{% endif %}</div>
+<form class="card-b settings-form" method="post" action="{{ action }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<fieldset class="settings-fields"{% if !can_operate || !readable %} disabled{% endif %}>
+<legend class="sr-only">{{ heading }}</legend>
+{% if is_user %}
+<div class="field"><label class="label" for="fixed-ipv4">Fixed VPN address</label><input class="input mono" id="fixed-ipv4" name="fixed_ipv4" value="{{ values.fixed_ipv4 }}" autocomplete="off" spellcheck="false"><p class="hint">An IPv4 address inside the VPN's pool that this user always gets. Empty: an address from the pool.</p></div>
+{% endif %}
+<div class="field"><label class="label" for="routes">Routes</label><textarea class="input mono" id="routes" name="routes" rows="3" spellcheck="false">{{ values.routes }}</textarea><p class="hint">Networks sent through the tunnel, one per line, or <span class="mono">default</span> for every network. Empty: {{ inherits.routes }}.</p></div>
+<div class="field"><label class="label" for="dns">DNS servers</label><textarea class="input mono" id="dns" name="dns" rows="2" spellcheck="false">{{ values.dns }}</textarea><p class="hint">One address per line. Empty: {{ inherits.dns }}.</p></div>
+<div class="field-row">
+<div class="field"><label class="label" for="download">Download limit<span class="sr-only"> in Mbps</span></label><div class="input-unit"><input class="input" id="download" name="download" value="{{ values.download }}" inputmode="decimal" autocomplete="off"><span class="unit" aria-hidden="true">Mbps</span></div><p class="hint">What the server sends at most. Empty: {{ inherits.download }}.</p></div>
+<div class="field"><label class="label" for="upload">Upload limit<span class="sr-only"> in Mbps</span></label><div class="input-unit"><input class="input" id="upload" name="upload" value="{{ values.upload }}" inputmode="decimal" autocomplete="off"><span class="unit" aria-hidden="true">Mbps</span></div><p class="hint">What the server takes at most. Empty: {{ inherits.upload }}.</p></div>
+</div>
+<div class="field"><label class="label" for="restrict">Hold to its routes</label><select class="input" id="restrict" name="restrict">
+<option value="inherit"{% if values.restrict != "yes" && values.restrict != "no" %} selected{% endif %}>As inherited: {{ inherits.restrict }}</option>
+<option value="yes"{% if values.restrict == "yes" %} selected{% endif %}>Yes: drop traffic outside the routes</option>
+<option value="no"{% if values.restrict == "no" %} selected{% endif %}>No</option>
+</select><p class="hint">ocserv enforces this with nftables, as it does for RESTRICT_TO_ROUTES, so it needs a kernel with nftables.</p></div>
+<details class="more-settings"{% if extras_open %} open{% endif %}>
+<summary class="btn btn-sm">More settings</summary>
+<div class="form-grid more-settings-fields">
+{% for field in extras %}
+<div class="field"><label class="label" for="{{ field.id }}">{{ field.label }}{% if !field.unit.is_empty() %}<span class="sr-only"> in {{ field.unit }}</span>{% endif %}</label>
+{% if field.input == "switch" %}<select class="input" id="{{ field.id }}" name="{{ field.name }}"><option value="inherit"{% if field.value != "on" && field.value != "off" %} selected{% endif %}>As inherited: {{ field.inherits }}</option><option value="on"{% if field.value == "on" %} selected{% endif %}>On</option><option value="off"{% if field.value == "off" %} selected{% endif %}>Off</option></select>{% else if field.input == "list" %}<textarea class="input mono" id="{{ field.id }}" name="{{ field.name }}" rows="2" spellcheck="false">{{ field.value }}</textarea>{% else %}{% if !field.unit.is_empty() %}<div class="input-unit">{% endif %}<input class="input mono" id="{{ field.id }}" name="{{ field.name }}" value="{{ field.value }}" autocomplete="off" spellcheck="false">{% if !field.unit.is_empty() %}<span class="unit" aria-hidden="true">{{ field.unit }}</span></div>{% endif %}{% endif %}
+<p class="hint">{% if !field.hint.is_empty() %}{{ field.hint }} {% endif %}{% if field.input != "switch" %}Empty: {{ field.inherits }}.{% endif %}</p></div>
+{% endfor %}
+</div>
+</details>
+</fieldset>
+{% if can_operate && readable %}
+<div class="settings-actions"><button class="btn btn-primary" type="submit" name="action" value="save">Save settings</button>{% if has_file %}<button class="btn btn-danger" type="submit" name="action" value="remove">Remove these settings</button>{% endif %}</div>
+{% endif %}
+</form>
+</section>
+{% endblock %}

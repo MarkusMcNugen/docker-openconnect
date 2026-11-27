@@ -1,0 +1,56 @@
+[package]
+name = "ocpanel"
+version = "2.0.0"
+edition = "2024"
+rust-version = "1.100"
+description = "Web administration panel for the docker-openconnect image"
+license = "GPL-3.0-only"
+repository = "https://github.com/MarkusMcNugen/docker-openconnect"
+publish = false
+
+[dependencies]
+argon2 = { version = "0.5.3", default-features = false, features = ["alloc", "password-hash"] }
+askama = { version = "0.16.1", default-features = false, features = ["derive", "std"] }
+axum = { version = "0.8.9", default-features = false, features = ["form", "http1", "query"] }
+data-encoding = "2.11"
+flate2 = "1.1.11"
+getrandom = "0.4"
+hmac = "0.13"
+hyper = { version = "1.12.0", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "0.1.21", default-features = false, features = ["service", "tokio"] }
+lettre = { version = "0.11.24", default-features = false, features = ["builder", "ring", "rustls", "smtp-transport", "webpki-roots"] }
+maxminddb = "0.33.0"
+md5 = "0.8.1"
+qrcodegen = "1.8.0"
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pki-types = { version = "1.16.0", features = ["std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha-crypt = "0.6.0"
+sha1 = "0.11"
+sha2 = "0.11"
+subtle = "2.6"
+tokio = { version = "1.54.1", default-features = false, features = ["io-util", "net", "rt", "sync", "time"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
+ureq = { version = "3.5.2", default-features = false, features = ["rustls"] }
+webauthn-rs = "0.6.2"
+zeroize = "1.9"
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.31", features = ["fs", "process", "signal", "socket", "user"] }
+
+[dev-dependencies]
+webauthn-authenticator-rs = { version = "0.6.2", default-features = false, features = ["softpasskey"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+expect_used = "deny"
+unwrap_used = "deny"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+overflow-checks = true
+strip = "symbols"

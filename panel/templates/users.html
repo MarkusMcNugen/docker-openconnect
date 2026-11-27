@@ -1,0 +1,105 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">VPN users</h1><p class="sub">{{ summary }}</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+{% if !refused.is_empty() %}
+<section class="card" aria-labelledby="refused-title">
+<div class="card-h"><h2 class="card-t" id="refused-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ location_icon }}"></path></svg>Refused by the location checks</h2><span class="pill pill-bad">{{ refused.len() }} refused</span></div>
+<ol class="ev-list">
+{% for row in refused %}
+<li class="ev"><span class="ev-ic ev-bad"><svg class="ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ location_icon }}"></path></svg></span><div class="ev-body"><p class="ev-t">{{ row.user }} from <span class="mono">{{ row.from }}</span></p><p class="ev-m">{% if let Some(place) = row.place %}<span class="place"><img class="flag" src="{{ place.flag }}" alt="">{{ place.name }}</span> · {% endif %}<time datetime="{{ row.stamp }}" data-local-time="date">{{ row.text }} UTC</time> · {{ row.why }}</p>{% if can_operate %}<div class="ev-act">{% if row.known %}<span class="pill pill-ok">Allowed</span>{% else %}<form method="post" action="/users/allow-place"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="user" value="{{ row.user }}"><input type="hidden" name="from" value="{{ row.from }}"><button class="btn btn-sm" type="submit">Allow this place<span class="sr-only"> for {{ row.user }}, {{ row.from }}</span></button></form>{% endif %}</div>{% endif %}</div></li>
+{% endfor %}
+</ol>
+<p class="card-b hint">Allow this place makes the place, its network and its country usual for the user, and counts it as where they are now, so their next sign-in from there goes through, unless a session of theirs is still open far away. Refusals stay listed as long as the live events are kept.</p>
+</section>
+{% endif %}
+{% if can_operate %}
+<section class="card" aria-labelledby="add-title">
+<div class="card-h"><h2 class="card-t" id="add-title">Add a user</h2></div>
+<form class="card-b form-grid" method="post" action="/users/change">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="add">
+<div class="field"><label class="label" for="new-name">User name</label><input class="input" id="new-name" name="name" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
+<div class="field"><label class="label" for="new-groups">Groups</label><input class="input" id="new-groups" name="groups" autocomplete="off" autocapitalize="none" spellcheck="false"><p class="hint">Optional. Separate several with commas.</p></div>
+<fieldset class="field choices" data-password-choice><legend class="label">Password</legend>
+<label class="choice"><input type="radio" name="password_choice" value="generate" checked><span><span class="choice-t">Generate a strong password</span><span class="hint">Five random words and a number, shown once on the onboarding kit.</span></span></label>
+<label class="choice"><input type="radio" name="password_choice" value="type"><span><span class="choice-t">Type a password</span><span class="hint">At least {{ min_length }} characters; a generated password is the stronger choice.</span></span></label>
+<label class="sr-only" for="new-password">The password to set</label><input class="input" id="new-password" name="password" type="password" autocomplete="new-password" minlength="{{ min_length }}" data-typed-password>
+</fieldset>
+<div class="form-end form-end-stack">{% if codes %}<p class="hint">The VPN asks every user for a code from an authenticator app, so the new user also gets an authenticator key.</p>{% endif %}<button class="btn btn-primary" type="submit">Add user</button></div>
+</form>
+</section>
+{% endif %}
+<section class="card">
+{% if rows.is_empty() %}
+<p class="card-b empty">No VPN users yet.{% if can_operate %} Add the first one above.{% endif %}</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">User</th><th scope="col">Status</th>{% if codes %}<th scope="col">Authenticator key</th>{% endif %}<th scope="col">Connected</th>{% if can_operate %}<th class="actions" scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+<tbody>
+{% for row in rows %}
+<tr>
+<td><div class="person"><span class="av" aria-hidden="true">{{ row.initials }}</span><div><div><a class="name-link" href="/users/{{ row.name }}/settings">{{ row.name }}</a></div><div class="cell-sub">{{ row.groups }}</div></div></div></td>
+<td>{% if row.locked %}<span class="pill pill-bad">Locked</span>{% else %}<span class="pill pill-ok">Active</span>{% endif %}{% if let Some(until) = row.vacation %}<div class="cell-sub">On vacation through {{ until }}</div>{% endif %}</td>
+{% if codes %}<td>{% if row.otp %}<span class="pill pill-ok">Set up</span>{% else %}<span class="pill pill-bad">Missing</span><div class="cell-sub">Cannot sign in</div>{% endif %}</td>{% endif %}
+<td>{{ row.sessions }}</td>
+{% if can_operate %}
+<td class="actions"><div class="row-actions">
+<button class="btn btn-sm" type="button" commandfor="password-{{ row.name }}-dialog" command="show-modal">New password<span class="sr-only"> for {{ row.name }}</span></button>
+<dialog class="card modal" id="password-{{ row.name }}-dialog" aria-labelledby="password-{{ row.name }}-title">
+<div class="card-h"><h2 class="card-t" id="password-{{ row.name }}-title">New password for {{ row.name }}</h2></div>
+<div class="card-b stack">
+<p class="empty">Either way, the page that follows shows {{ row.name }}'s onboarding kit with the new password, this once.</p>
+<form method="post" action="/users/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="password"><input type="hidden" name="name" value="{{ row.name }}"><input type="hidden" name="password_choice" value="generate"><button class="btn btn-primary" type="submit">Generate a strong password</button></form>
+<form class="stack" method="post" action="/users/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="password"><input type="hidden" name="name" value="{{ row.name }}"><input type="hidden" name="password_choice" value="type"><div class="field"><label class="label" for="pw-{{ row.name }}">Or type one</label><input class="input" id="pw-{{ row.name }}" name="password" type="password" autocomplete="new-password" minlength="{{ min_length }}" required><p class="hint">At least {{ min_length }} characters.</p></div><div><button class="btn" type="submit">Set this password</button></div></form>
+</div>
+<div class="card-f"><button class="btn" type="button" commandfor="password-{{ row.name }}-dialog" command="close">Cancel</button></div>
+</dialog>
+<button class="btn btn-sm" type="button" commandfor="groups-{{ row.name }}-dialog" command="show-modal">Groups<span class="sr-only"> of {{ row.name }}</span></button>
+<dialog class="card modal" id="groups-{{ row.name }}-dialog" aria-labelledby="groups-{{ row.name }}-title">
+<form method="post" action="/users/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="groups"><input type="hidden" name="name" value="{{ row.name }}">
+<div class="card-h"><h2 class="card-t" id="groups-{{ row.name }}-title">Groups of {{ row.name }}</h2></div>
+<div class="card-b"><div class="field"><label class="label" for="groups-{{ row.name }}">Groups</label><input class="input" id="groups-{{ row.name }}" name="groups" value="{{ row.group_list }}" autocomplete="off" spellcheck="false"><p class="hint">Separate several with commas; empty for none. ocserv uses them from {{ row.name }}'s next connection.</p></div></div>
+<div class="card-f"><button class="btn" type="button" commandfor="groups-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div>
+</form>
+</dialog>
+{% if codes %}<button class="btn btn-sm" type="button" commandfor="key-{{ row.name }}-dialog" command="show-modal">{% if row.otp %}Reset authenticator{% else %}Set up authenticator{% endif %}<span class="sr-only"> of {{ row.name }}</span></button>
+<dialog class="card modal" id="key-{{ row.name }}-dialog" aria-labelledby="key-{{ row.name }}-title">
+<form method="post" action="/users/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="reset_otp"><input type="hidden" name="name" value="{{ row.name }}">
+<div class="card-h"><h2 class="card-t" id="key-{{ row.name }}-title">{% if row.otp %}Reset the authenticator of {{ row.name }}{% else %}Set up an authenticator for {{ row.name }}{% endif %}</h2></div>
+<p class="card-b empty">{% if row.otp %}This replaces {{ row.name }}'s authenticator key, and the old one stops working.{% else %}{{ row.name }} cannot sign in until they have an authenticator key.{% endif %} The page that follows shows the new key on their onboarding kit.</p>
+<div class="card-f"><button class="btn" type="button" commandfor="key-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-primary" type="submit">Make a new key</button></div>
+</form>
+</dialog>{% endif %}
+{% if locations_on %}<button class="btn btn-sm" type="button" commandfor="vacation-{{ row.name }}-dialog" command="show-modal">Vacation<span class="sr-only"> for {{ row.name }}</span></button>
+<dialog class="card modal" id="vacation-{{ row.name }}-dialog" aria-labelledby="vacation-{{ row.name }}-title">
+<form method="post" action="/vacation"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="vpn"><input type="hidden" name="name" value="{{ row.name }}"><input type="hidden" name="back" value="users">
+<div class="card-h"><h2 class="card-t" id="vacation-{{ row.name }}-title">Vacation for {{ row.name }}</h2></div>
+<div class="card-b stack"><p class="empty">Through the day you pick, when {{ row.name }} signs in from somewhere implausible, the sign-in goes through with an alert instead of being refused.</p>
+<div class="field"><label class="label" for="vacation-{{ row.name }}">Last day</label><input class="input" id="vacation-{{ row.name }}" name="until" type="date" min="{{ vacation_from }}" max="{{ vacation_to }}"{% if let Some(until) = row.vacation %} value="{{ until }}"{% endif %} required><p class="hint">From today to {{ vacation_to }}.</p></div></div>
+<div class="card-f">{% if row.vacation.is_some() %}<button class="btn btn-aside" type="submit" form="vacation-{{ row.name }}-end">End the vacation</button>{% endif %}<button class="btn" type="button" commandfor="vacation-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div>
+</form>
+{% if row.vacation.is_some() %}<form id="vacation-{{ row.name }}-end" method="post" action="/vacation" hidden><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="vpn"><input type="hidden" name="name" value="{{ row.name }}"><input type="hidden" name="back" value="users"><input type="hidden" name="until" value=""></form>{% endif %}
+</dialog>{% endif %}
+<form method="post" action="/users/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="{% if row.locked %}unlock{% else %}lock{% endif %}"><input type="hidden" name="name" value="{{ row.name }}"><button class="btn btn-sm" type="submit">{% if row.locked %}Unlock{% else %}Lock{% endif %}<span class="sr-only"> {{ row.name }}</span></button></form>
+<button class="btn btn-sm btn-danger" type="button" commandfor="remove-{{ row.name }}-dialog" command="show-modal">Remove<span class="sr-only"> {{ row.name }}</span></button>
+<dialog class="card modal" id="remove-{{ row.name }}-dialog" aria-labelledby="remove-{{ row.name }}-title">
+<form method="post" action="/users/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="remove"><input type="hidden" name="name" value="{{ row.name }}">
+<div class="card-h"><h2 class="card-t" id="remove-{{ row.name }}-title">Remove {{ row.name }}?</h2></div>
+<p class="card-b empty">This deletes {{ row.name }}'s password{% if codes %} and authenticator key{% endif %} and ends their sessions.</p>
+<div class="card-f"><button class="btn" type="button" commandfor="remove-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-danger" type="submit">Remove {{ row.name }}</button></div>
+</form>
+</dialog>
+</div></td>
+{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+<p class="hint">Setting a password or an authenticator key shows the user's onboarding kit: the server, its key pin, the password and the key, and how to set up each client, on one printable page. Locking a user keeps their password but refuses their sign-ins and ends their sessions; unlocking lets them sign in again. Groups changes the groups a user belongs to and keeps their password. A user's name opens their own settings: a fixed VPN address, routes, DNS servers and bandwidth limits.</p>
+{% endblock %}

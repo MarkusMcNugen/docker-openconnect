@@ -1,0 +1,71 @@
+baseURL: https://markusmcnugen.github.io/docker-openconnect/
+title: OpenConnect VPN Server
+locale: en-us
+enableRobotsTXT: true
+enableGitInfo: true
+
+module:
+  hugoVersion:
+    extended: true
+    min: 0.170.1
+  imports:
+    - path: github.com/imfing/hextra
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+  highlight:
+    noClasses: false
+
+menu:
+  main:
+    - identifier: docs
+      name: Docs
+      pageRef: /docs
+      weight: 1
+    - name: Search
+      weight: 2
+      params:
+        type: search
+    - name: GitHub
+      weight: 3
+      url: https://github.com/MarkusMcNugen/docker-openconnect
+      params:
+        icon: github
+
+params:
+  description: An OpenConnect VPN server in Docker, built from the newest signed ocserv release, with a hardened default configuration.
+
+  navbar:
+    displayTitle: true
+    displayLogo: true
+    logo:
+      path: logo.svg
+      width: 32
+      height: 32
+
+  page:
+    width: wide
+
+  imageZoom:
+    enable: true
+
+  theme:
+    default: system
+    displayToggle: true
+
+  footer:
+    displayCopyright: false
+    displayPoweredBy: true
+
+  editURL:
+    enable: true
+    base: https://github.com/MarkusMcNugen/docker-openconnect/edit/main/wiki/content
+
+  search:
+    enable: true
+    type: flexsearch
+    flexsearch:
+      index: content
+      tokenize: forward

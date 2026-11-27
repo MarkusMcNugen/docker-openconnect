@@ -1,0 +1,29 @@
+{% extends "portal_shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Connect to the VPN</h1><p class="sub">Your connection details and how to set up a client</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+{% if needs_key %}
+<section class="card" aria-labelledby="key-title">
+<div class="card-h"><h2 class="card-t" id="key-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.phone }}"></path></svg>Authenticator app</h2></div>
+<div class="card-b stack">
+<p class="empty">The VPN asks for a six-digit code from an authenticator app after your password, and you have no authenticator key yet. Set one up before you connect.</p>
+<form method="post" action="/key"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary" type="submit">Set up the authenticator app</button></form>
+</div>
+</section>
+{% endif %}
+<section class="card" aria-labelledby="connection-title">
+<div class="card-h"><h2 class="card-t" id="connection-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icons.connection }}"></path></svg>Connection</h2></div>
+<div class="card-b"><dl class="kv">
+<dt>Server</dt><dd class="mono">{{ address }}</dd>
+{% if let Some(url) = setup.secret_url %}<dt>Address with its secret</dt><dd class="mono wrap-any">{{ url }}</dd>
+{% endif %}<dt>Server key pin</dt><dd class="mono wrap-any">{{ pin }}</dd>
+<dt>User name</dt><dd class="mono">{{ bar.user }}</dd>
+<dt>Password</dt><dd>Your VPN password, the one you signed in here with</dd>
+{% if codes %}<dt>Code</dt><dd>Six digits from your authenticator app, after the password</dd>
+{% endif %}<dt>{{ groups_label }}</dt><dd>{{ groups }}</dd>
+</dl></div>
+</section>
+{% include "client_setup.html" %}
+{% endblock %}

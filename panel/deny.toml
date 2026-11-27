@@ -1,0 +1,61 @@
+# cargo-deny policy for the admin panel: run as `cargo deny --locked check`.
+
+[graph]
+# The image ships these three targets; platform-specific crates for anything
+# else are not part of the build and are not judged.
+targets = [
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl",
+    "armv7-unknown-linux-musleabihf",
+]
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+    # Marvin: a timing attack that recovers an RSA private key from decryption
+    # or signing. `rsa` arrives through `webauthn-rs` and `crypto-glue` for
+    # passkeys that hold RSA keys; the panel only verifies their signatures,
+    # with the public key. `rsa` 0.10.0 fixes it, and `crypto-glue` 0.2.3 is
+    # the first release that allows it; this entry goes when that release is
+    # locked.
+    { id = "RUSTSEC-2023-0071", reason = "the panel only verifies RSA signatures with public keys and never decrypts or signs with an RSA private key" },
+]
+
+[licenses]
+version = 2
+# Permissive licenses, plus MPL-2.0 (webauthn-rs and the RustCrypto facade it
+# uses), whose files may be combined with this GPL-3.0 program.
+allow = [
+    # quoted_printable, which lettre encodes email alerts with: the BSD
+    # license without even its attribution clause.
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    # webpki-roots: Mozilla's list of certificate authorities, which ureq
+    # trusts when it downloads MaxMind GeoLite2.
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.9
+unused-allowed-license = "allow"
+
+[licenses.private]
+# ocpanel is GPL-3.0-only and never published; only its dependencies are
+# judged against the list above.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

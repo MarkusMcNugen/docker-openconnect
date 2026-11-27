@@ -1,0 +1,32 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Dashboard</h1><p class="sub">You are managing container {{ instance }} at {{ host }}.</p></div></div>
+<div class="grid-stats">
+{% for stat in stats %}
+<section class="card stat">
+<div class="stat-top"><h2 class="stat-l">{{ stat.label }}</h2><span class="{{ stat.tone }}"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ stat.icon }}"></path></svg></span></div>
+<div class="stat-v">{{ stat.value }}</div>
+<p class="stat-l">{{ stat.note }}</p>
+</section>
+{% endfor %}
+</div>
+<div class="grid-charts">
+<section class="card" data-chart="sessions" aria-labelledby="chart-sessions">
+<div class="card-h"><h2 class="card-t" id="chart-sessions">Connected sessions</h2><button class="btn btn-sm" type="button" data-toggle-table>Show as a table</button></div>
+<div class="card-b chart-body"><p class="chart-summary" data-summary>Loading the history.</p><div class="chart-plot" data-plot tabindex="0" role="group" aria-label="Connected sessions over the last day; use the arrow keys to read each sample"></div><div class="chart-table table-wrap" data-table hidden></div><p class="sr-only" aria-live="polite" data-live></p></div>
+</section>
+<section class="card" data-chart="throughput" aria-labelledby="chart-throughput">
+<div class="card-h"><h2 class="card-t" id="chart-throughput">Throughput, Mbps</h2><button class="btn btn-sm" type="button" data-toggle-table>Show as a table</button></div>
+<div class="card-b chart-body"><p class="chart-summary" data-summary>Loading the history.</p><div class="chart-legend" aria-hidden="true"><span><i class="key s1"></i>To clients</span><span><i class="key s2"></i>From clients</span></div><div class="chart-plot" data-plot tabindex="0" role="group" aria-label="Throughput to and from clients over the last day; use the arrow keys to read each sample"></div><div class="chart-table table-wrap" data-table hidden></div><p class="sr-only" aria-live="polite" data-live></p></div>
+</section>
+</div>
+<section class="card" aria-labelledby="recent-title">
+<div class="card-h"><h2 class="card-t" id="recent-title">Recent events</h2><a class="btn btn-sm" href="/events">All events</a></div>
+{% if events.is_empty() %}<p class="card-b empty">Nothing has happened yet. Connections, failed sign-ins and bans appear here as the VPN server reports them.</p>{% else %}<ol class="ev-list">
+{% for row in events %}{% include "event_row.html" %}
+{% endfor %}</ol>{% endif %}
+{% if let Some(note) = countries_note %}<p class="card-b hint">{{ note }}</p>{% endif %}
+</section>
+{% include "country_credit.html" %}
+<section class="card"><div class="card-b">Signed in as {{ shell.admin }}, with the {{ shell.role }} role. Your session ends after a period without activity.</div></section>
+{% endblock %}

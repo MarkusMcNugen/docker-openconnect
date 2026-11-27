@@ -1,0 +1,40 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Certificate for {{ user }}</h1><p class="sub">Serial number <span class="mono">{{ serial }}</span>, valid until <time datetime="{{ until.iso }}" data-local-time="date">{{ until.text }} UTC</time></p></div></div>
+{% if let Some(key) = key_file %}
+<section class="card" aria-labelledby="key-title">
+<div class="card-h"><h2 class="card-t" id="key-title">Key file</h2><span class="pill pill-warn">Shown only now</span></div>
+<div class="card-b stack">
+<p>The key file holds {{ user }}'s new key and its certificate. The panel keeps neither the key nor the passphrase, so download the file now and give it to {{ user }} with the passphrase by another way, such as the file by email and the passphrase in person.</p>
+<dl class="kv">
+<dt>Passphrase</dt><dd><span class="copy-row"><span class="mono" id="key-passphrase">{{ key.passphrase }}</span><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="key-passphrase" aria-label="Copy the passphrase" title="Copy the passphrase" hidden><svg class="ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ copy_icon }}"></path></svg></button></span></dd>
+<dt>Encryption</dt><dd>{{ key.encryption }}</dd>
+</dl>
+<div><a class="btn btn-primary" href="data:application/x-pkcs12;base64,{{ key.p12_base64 }}" download="{{ user }}.p12">Download {{ user }}.p12</a></div>
+</div>
+</section>
+{% else %}
+<section class="card" aria-labelledby="certificate-title">
+<div class="card-h"><h2 class="card-t" id="certificate-title">Certificate</h2></div>
+<div class="card-b stack">
+<p>Give {{ user }} this certificate to use with the key their signing request came from.</p>
+<div><a class="btn btn-primary" href="data:application/x-pem-file;base64,{{ certificate_base64 }}" download="{{ user }}-cert.pem">Download {{ user }}-cert.pem</a></div>
+</div>
+</section>
+{% endif %}
+<section class="card" aria-labelledby="use-title">
+<div class="card-h"><h2 class="card-t" id="use-title">Connecting with it</h2></div>
+<div class="card-b stack">
+{% if key_file.is_some() %}
+<p>OpenConnect asks for the passphrase:</p>
+<pre class="code">openconnect --certificate {{ user }}.p12 --servercert {{ pin }} {{ url }}</pre>
+<p>Cisco Secure Client and AnyConnect use the certificate once {{ user }}.p12 is imported into the user's certificate store; on Windows, macOS, iOS and Android, opening the file imports it.</p>
+{% else %}
+<pre class="code">openconnect --certificate {{ user }}-cert.pem --sslkey {{ user }}-key.pem --servercert {{ pin }} {{ url }}</pre>
+<p>Here {{ user }}-key.pem is the key the signing request came from.</p>
+{% endif %}
+<p>Certificates sign in only when Sign-in on the Settings page allows them.</p>
+</div>
+</section>
+<p><a class="btn" href="/certificates">Back to Certificates</a></p>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Alerts</h1><p class="sub">Messages to your phone, chat or inbox when something needs your attention</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+<section class="card" aria-labelledby="topics-title">
+<div class="card-h"><h2 class="card-t" id="topics-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ bell_icon }}"></path></svg>What alerts you</h2>{% if let Some(chosen) = chosen %}<span class="pill pill-info">{{ chosen }}</span>{% else %}<span class="pill pill-mute">None</span>{% endif %}</div>
+<form class="card-b stack" method="post" action="/alerts/topics">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<fieldset class="choices"><legend class="sr-only">What alerts you</legend>
+{% for topic in topics %}<label class="choice"><input type="checkbox" name="topic" value="{{ topic.key }}"{% if topic.checked %} checked{% endif %}><span><span class="choice-t">{{ topic.title }}</span><span class="hint">{{ topic.hint }}</span></span></label>
+{% endfor %}</fieldset>
+<div><button class="btn btn-primary" type="submit">Save</button></div>
+</form>
+</section>
+<section class="card" aria-labelledby="channels-title">
+<div class="card-h"><h2 class="card-t" id="channels-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ send_icon }}"></path></svg>Where alerts go</h2><span class="pill {% if channels.is_empty() %}pill-mute{% else %}pill-info{% endif %}">{{ count }}</span></div>
+{% if channels.is_empty() %}
+<p class="card-b empty">No channels yet. Every alert you choose goes to each channel you add here.</p>
+{% else %}
+<ul class="channel-list">
+{% for row in channels %}
+<li class="channel-item">
+<div class="channel"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ row.icon }}"></path></svg><div class="channel-text"><div class="channel-kind">{{ row.kind }} <span class="cell-sub mono">{{ row.label }}</span>{% if row.unencrypted %}<span class="pill pill-warn">Unencrypted</span>{% endif %}</div><div class="channel-status"><span class="pill {{ row.pill.0 }}">{{ row.pill.1 }}</span><span class="cell-sub">{{ row.before }}{% if let Some(at) = row.at %} <time datetime="{{ at.iso }}" data-local-time="date">{{ at.text }} UTC</time>{% endif %}{{ row.after }}</span></div></div></div>
+<div class="act-row"><form method="post" action="/alerts/channels/test"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ row.id }}"><button class="btn btn-sm" type="submit">Send a test<span class="sr-only"> to the {{ row.kind }} channel {{ row.label }}</span></button></form><form method="post" action="/alerts/channels/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ row.id }}"><button class="btn btn-sm" type="submit">Remove<span class="sr-only"> the {{ row.kind }} channel {{ row.label }}</span></button></form></div>
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+<div class="card-b">
+{% if full %}
+<p class="empty">You have {{ max_channels }} channels, the most an admin may have. Remove one to add another.</p>
+{% else %}
+<div class="add-channels">
+<details class="more-settings"><summary class="btn btn-sm">Add ntfy</summary>
+<form class="rule-form more-settings-fields" method="post" action="/alerts/channels">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="ntfy">
+<div class="field"><label class="label" for="ntfy-topic">Topic</label><input class="input mono" id="ntfy-topic" name="topic" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
+<div class="field"><label class="label" for="ntfy-server">Server</label><input class="input mono" id="ntfy-server" name="server" placeholder="https://ntfy.sh" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+<div class="field"><label class="label" for="ntfy-token">Access token</label><input class="input mono" id="ntfy-token" name="token" type="password" placeholder="For a protected topic" autocomplete="off" spellcheck="false"></div>
+<div class="field"><span class="label" aria-hidden="true">&nbsp;</span><button class="btn btn-primary" type="submit">Add</button></div>
+</form>
+<p class="hint">In the ntfy app, subscribe to a topic name only you know, then enter it here. On ntfy.sh anyone who knows the name can read the topic, so make it long and hard to guess. Leave the server empty for ntfy.sh.</p>
+</details>
+<details class="more-settings"><summary class="btn btn-sm">Add Telegram</summary>
+<form class="rule-form more-settings-fields" method="post" action="/alerts/channels">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="telegram">
+<div class="field"><label class="label" for="telegram-token">Bot token</label><input class="input mono" id="telegram-token" name="token" type="password" autocomplete="off" spellcheck="false" required></div>
+<div class="field"><label class="label" for="telegram-chat">Chat ID</label><input class="input mono" id="telegram-chat" name="chat" placeholder="123456789" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
+<div class="field"><span class="label" aria-hidden="true">&nbsp;</span><button class="btn btn-primary" type="submit">Add</button></div>
+</form>
+<p class="hint">Make a bot with @BotFather, which gives you its token, and send your bot a message. Your chat ID is the number at "chat":{"id": in <span class="mono">https://api.telegram.org/bot&lt;token&gt;/getUpdates</span>.</p>
+</details>
+<details class="more-settings"><summary class="btn btn-sm">Add a webhook</summary>
+<form class="rule-form more-settings-fields" method="post" action="/alerts/channels">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="webhook">
+<div class="field field-wide"><label class="label" for="webhook-url">URL</label><input class="input mono" id="webhook-url" name="url" type="url" placeholder="https://" autocomplete="off" spellcheck="false" required></div>
+<div class="field"><span class="label" aria-hidden="true">&nbsp;</span><button class="btn btn-primary" type="submit">Add</button></div>
+</form>
+<p class="hint">Discord, Slack, Gotify, Home Assistant and most others: paste the URL the service gives you. http:// works only for addresses on your own networks.</p>
+</details>
+<details class="more-settings"><summary class="btn btn-sm">Add email</summary>
+<form class="rule-form more-settings-fields" method="post" action="/alerts/channels">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="email">
+<div class="field field-wide"><label class="label" for="email-address">Email address</label><input class="input mono" id="email-address" name="address" type="email" autocomplete="email" spellcheck="false" required></div>
+<div class="field"><span class="label" aria-hidden="true">&nbsp;</span><button class="btn btn-primary" type="submit">Add</button></div>
+</form>
+{% if let Some(note) = email_note %}<div class="callout callout-warn more-settings-fields" role="note"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning_icon }}"></path></svg><span>{{ note }}</span></div>{% endif %}
+</details>
+</div>
+{% endif %}
+</div>
+</section>
+{% if let Some(mail) = mail %}
+<section class="card" aria-labelledby="mail-title">
+<div class="card-h"><h2 class="card-t" id="mail-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ mail_icon }}"></path></svg>Mail server</h2>{% if mail.summary.is_some() %}<span class="pill pill-ok">Set</span>{% else %}<span class="pill pill-mute">None</span>{% endif %}</div>
+<div class="card-b stack">
+<p class="empty">Every admin's email alerts go through this server.{% if let Some(summary) = mail.summary %} Now {{ summary }}.{% endif %}</p>
+{% if mail.from_env %}
+<p class="hint"><span class="mono">PANEL_SMTP_HOST</span> and the variables beside it. Set by the container's environment</p>
+{% else %}
+<form class="stack" method="post" action="/alerts/mail">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="form-grid">
+<div class="field"><label class="label" for="mail-host">Server</label><input class="input mono" id="mail-host" name="host" value="{{ mail.host }}" placeholder="smtp.example.com" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
+<div class="field"><label class="label" for="mail-security">Encryption</label><select class="input" id="mail-security" name="security">{% for choice in mail.securities %}<option value="{{ choice.key }}"{% if choice.selected %} selected{% endif %}>{{ choice.words }}</option>{% endfor %}</select></div>
+<div class="field"><label class="label" for="mail-port">Port</label><input class="input mono" id="mail-port" name="port" value="{{ mail.port }}" inputmode="numeric" placeholder="The usual one" autocomplete="off"></div>
+<div class="field"><label class="label" for="mail-from">From address</label><input class="input mono" id="mail-from" name="from" value="{{ mail.from }}" type="email" placeholder="alerts@example.com" autocomplete="off" spellcheck="false" required></div>
+<div class="field"><label class="label" for="mail-user">User name</label><input class="input mono" id="mail-user" name="user" value="{{ mail.user }}" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+<div class="field"><label class="label" for="mail-password">Password</label><input class="input mono" id="mail-password" name="password" type="password" placeholder="{% if mail.password_set %}Saved; empty keeps it{% endif %}" autocomplete="new-password"></div>
+</div>
+<div><button class="btn btn-primary" type="submit">Save</button></div>
+</form>
+{% if mail.saved %}<form method="post" action="/alerts/mail/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Remove the mail server</button></form>{% endif %}
+<p class="hint">Leave the user name and password empty for a relay that takes none, the only kind reached without encryption. A saved password is kept while the server and user name stay the same.</p>
+{% endif %}
+</div>
+</section>
+{% endif %}
+<p class="hint">Alerts that come within a minute of a message go together in the next one, so a burst arrives as a few messages. A message that cannot be sent is tried again after a minute and after ten minutes, then shown here as failed. Tokens, passwords and webhook URLs stay in /config/panel/alerts.json, readable by root only, and are never shown again in full.</p>
+{% endblock %}

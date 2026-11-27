@@ -1,0 +1,68 @@
+{% extends "portal_shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Your account</h1><p class="sub">Your password, your authenticator app and your VPN connections</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+<section class="card" aria-labelledby="password-title">
+<div class="card-h"><h2 class="card-t" id="password-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ key_icon }}"></path></svg>Password</h2></div>
+<div class="card-b">
+{% if recent %}
+<form class="stack account-form" method="post" action="/account/password">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="field"><label class="label" for="current">Current password</label><input class="input" id="current" name="current" type="password" autocomplete="current-password" required></div>
+<div class="field"><label class="label" for="new">New password</label><input class="input" id="new" name="new" type="password" autocomplete="new-password" minlength="{{ min_length }}" required><span class="hint">At least {{ min_length }} characters.</span></div>
+<div class="field"><label class="label" for="repeat">New password again</label><input class="input" id="repeat" name="repeat" type="password" autocomplete="new-password" minlength="{{ min_length }}" required></div>
+<p class="hint">Changing your password disconnects your other VPN connections and signs out your other portal sessions.</p>
+<div><button class="btn btn-primary" type="submit">Change password</button></div>
+</form>
+{% else %}
+<p class="empty">Changing your password needs a recent sign-in. Sign out and sign in again, then change it.</p>
+{% endif %}
+</div>
+</section>
+{% if codes %}
+<section class="card" aria-labelledby="key-title">
+<div class="card-h"><h2 class="card-t" id="key-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ phone_icon }}"></path></svg>Authenticator app</h2></div>
+<div class="card-b">
+{% if has_key %}
+<form class="stack account-form" method="post" action="/key">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<p class="empty">To move to a new phone or app, replace your key. Enter a code from your current app first; the old key stops working once the new one is on.</p>
+<div class="field"><label class="label" for="old-code">Code from your current authenticator app</label><input class="input mono" id="old-code" name="old_code" inputmode="numeric" autocomplete="one-time-code" required></div>
+<div><button class="btn" type="submit">Replace the key</button></div>
+<p class="hint">No longer have your current app? An admin can reset your authenticator.</p>
+</form>
+{% else %}
+<div class="stack">
+<p class="empty">The VPN asks for a six-digit code from an authenticator app after your password, and you have no authenticator key yet.</p>
+<form method="post" action="/key"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary" type="submit">Set up the authenticator app</button></form>
+</div>
+{% endif %}
+</div>
+</section>
+{% endif %}
+<section class="card" aria-labelledby="sessions-title">
+<div class="card-h"><h2 class="card-t" id="sessions-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ plugs_icon }}"></path></svg>VPN connections</h2></div>
+{% if rows.is_empty() %}
+<p class="card-b empty">You are not connected to the VPN now.</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">Client</th><th scope="col">VPN address</th><th scope="col">From</th><th scope="col">Connected for</th><th class="actions" scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+<tbody>
+{% for row in rows %}
+<tr>
+<td class="wrap">{{ row.client }}{% if row.here %}<div class="cell-sub">This browser's connection</div>{% endif %}</td>
+<td>{% for address in row.vpn %}<div class="mono">{{ address }}</div>{% endfor %}</td>
+<td class="mono">{{ row.remote }}</td>
+<td class="wrap">{{ row.connected }}</td>
+<td class="actions">{% if !row.here %}<form method="post" action="/account/sessions/end"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ row.id }}"><button class="btn btn-sm" type="submit">Disconnect<span class="sr-only"> session {{ row.id }}</span></button></form>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+{% endblock %}

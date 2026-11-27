@@ -1,0 +1,62 @@
+#!/bin/bash
+# Builds ocserv.conf again for the admin panel's helper after an owner
+# changes a setting: from the environment, the panel's stored settings and
+# the decisions the container made at start. Settings that wait for the next
+# start keep the value the server started with, so a reload applies only the
+# settings ocserv can take while sessions stay.
+#
+# render-config CONFIG STATE: writes the configuration to CONFIG and the
+# settings' sources and values to STATE, then checks CONFIG with ocserv.
+set -Eeuo pipefail
+
+readonly LIB_DIR=/usr/local/lib/ocserv-docker
+# shellcheck source=SCRIPTDIR/../../lib/ocserv-docker/common.sh
+source "$LIB_DIR/common.sh"
+# shellcheck source=SCRIPTDIR/../../lib/ocserv-docker/settings.sh
+source "$LIB_DIR/settings.sh"
+# shellcheck source=SCRIPTDIR/../../lib/ocserv-docker/config.sh
+source "$LIB_DIR/config.sh"
+
+# Reads the start decisions file: each line a variable, an equals sign and
+# "true" or "false", for the variables conf_build takes besides settings.
+read_start_decisions() {
+    local file=$1 line
+    while IFS= read -r line || [[ -n $line ]]; do
+        case $line in
+            IPV6_ENABLED=true | IPV6_ENABLED=false | RESTRICT_ENABLED=true | RESTRICT_ENABLED=false)
+                printf -v "${line%%=*}" '%s' "${line#*=}"
+                ;;
+            *) die "$file: unexpected line '$line'" ;;
+        esac
+    done <"$file"
+    [[ -n ${IPV6_ENABLED:-} && -n ${RESTRICT_ENABLED:-} ]] || die "$file is incomplete"
+}
+
+main() {
+    local config=${1:?usage: render-config CONFIG STATE} state=${2:?usage: render-config CONFIG STATE}
+    local runtime=${RUNTIME_DIR:-/run/ocserv} name when source value
+
+    load_panel_settings
+    while IFS=$'\t' read -r name when source value; do
+        is_panel_setting "$name" || die "$runtime/panel-settings names an unknown setting '$name'"
+        # A setting that waits for the next start keeps the value and the
+        # source the server started with.
+        if [[ $when == start ]]; then
+            printf -v "$name" '%s' "$value"
+            if [[ $source == panel ]]; then
+                PANEL_SET[$name]=1
+            else
+                unset "PANEL_SET[$name]"
+            fi
+        fi
+    done <"$runtime/panel-settings"
+    read_start_decisions "$runtime/start-decisions"
+    load_settings
+
+    conf_build
+    conf_write "$config" "Generated from environment variables at container start and replaced at every start."
+    write_settings_state "$state"
+    ocserv --test-config --config "$config" >/dev/null
+}
+
+main "$@"

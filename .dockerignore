@@ -1,0 +1,7 @@
+*
+!rootfs/
+!keys/
+!patches/
+!panel/
+panel/target/
+!scripts/latest-ocserv-version.sh

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="signin">
+<section class="card signin-card" aria-labelledby="signin-title">
+<div class="signin-head">
+<img class="logo-lg" src="{{ page.logo }}" alt="">
+<h1 id="signin-title">{{ heading }}</h1>
+<p>{{ intro }}</p>
+</div>
+{% if let Some(error) = error %}
+<div class="callout callout-bad" role="alert"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning }}"></path></svg><span>{{ error }}</span></div>
+{% endif %}
+{% if let Some(key) = key %}
+<ol class="steps">
+<li>Open the authenticator app on your phone and add an account.</li>
+<li>Scan the QR code, or type the key into the app.</li>
+<li>Enter the six-digit code the app shows.</li>
+</ol>
+<div class="enroll-key">
+{{ key.qr|safe }}
+<div class="enroll-text">
+<span class="label">Or type this key</span>
+<span class="mono key-text">{{ key.grouped }}</span>
+<p class="hint">Codes have six digits and change every 30 s, as in every authenticator app.</p>
+<a href="{{ key.uri }}">Open in an authenticator app on this device</a>
+</div>
+</div>
+<form class="stack" method="post" action="/enroll">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="field"><label class="label" for="code">Code from your authenticator app</label><input class="input mono" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
+<button class="btn btn-primary btn-block" type="submit">Turn on the authenticator app</button>
+</form>
+{% else %}
+<form class="stack" method="post" action="/enroll/start">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<button class="btn btn-primary btn-block" type="submit">Show the QR code</button>
+</form>
+{% endif %}
+{% if passkey %}
+<p class="or-line"><span>or</span></p>
+<form class="stack" data-passkey-add hidden>
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="field"><label class="label" for="passkey-name">Name for your passkey</label><input class="input" id="passkey-name" name="name" maxlength="{{ name_chars }}" placeholder="Work laptop" autocomplete="off" required></div>
+<button class="btn btn-block" type="submit"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ passkey_icon }}"></path></svg>Add a passkey</button>
+</form>
+<div class="callout callout-bad" role="alert" data-passkey-error hidden><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning }}"></path></svg><span></span></div>
+<noscript><p class="hint">Adding a passkey needs JavaScript, which this browser has turned off.</p></noscript>
+{% endif %}
+{% if back %}<p class="signin-foot"><a href="/account">Back to your account</a></p>{% else %}<form class="signin-foot" method="post" action="/logout"><button class="link-btn" type="submit">Sign out</button></form>{% endif %}
+</section>
+</main>
+{% endblock %}

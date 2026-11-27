@@ -1,0 +1,34 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Groups</h1><p class="sub">Settings shared by the users in a group: routes, DNS servers, bandwidth limits and route restriction</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+{% if !readable %}
+<div class="callout"><span>The VPN server's configuration sets no config-per-group, so ocserv reads no group settings. The groups below come from the password file.</span></div>
+{% endif %}
+{% if can_operate && readable %}
+<section class="card" aria-labelledby="new-group-title">
+<div class="card-h"><h2 class="card-t" id="new-group-title">New group</h2></div>
+<form class="card-b form-grid" method="post" action="/groups">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="field"><label class="label" for="group-name">Group name</label><input class="input" id="group-name" name="name" autocomplete="off" autocapitalize="none" spellcheck="false" required><p class="hint">Add users to it on the VPN users page.</p></div>
+<div class="form-end"><button class="btn btn-primary" type="submit">Create group</button></div>
+</form>
+</section>
+{% endif %}
+{% if cards.is_empty() %}
+<section class="card"><p class="card-b empty">No groups yet.{% if can_operate && readable %} Create one above, or give users a group on the VPN users page.{% endif %}</p></section>
+{% else %}
+<div class="grid-cards">
+{% for card in cards %}
+<section class="card group-card" aria-labelledby="group-{{ loop.index }}">
+<div class="card-h"><h2 class="card-t" id="group-{{ loop.index }}"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ group_icon }}"></path></svg>{{ card.name }}</h2>{% if card.own %}<span class="pill pill-info">Own settings</span>{% else %}<span class="pill pill-mute">Server settings</span>{% endif %}</div>
+<div class="card-b"><p class="cell-sub group-members">{{ card.members }}</p>
+<dl class="kv"><dt>Tunnel</dt><dd>{{ card.tunnel }}</dd><dt>DNS</dt><dd>{{ card.dns }}</dd><dt>Bandwidth</dt><dd>{{ card.bandwidth }}</dd><dt>Held to its routes</dt><dd>{{ card.restricted }}</dd></dl></div>
+{% if readable %}<div class="card-f"><a class="btn btn-sm" href="/groups/{{ card.name }}">{% if can_operate %}Change settings{% else %}View settings{% endif %}<span class="sr-only"> of {{ card.name }}</span></a></div>{% endif %}
+</section>
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

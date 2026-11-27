@@ -1,0 +1,16 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Live events</h1><p class="sub">Connections, disconnections, failed sign-ins and bans as the VPN server reports them, and what the location checks found, kept for {{ kept }}</p></div>
+<nav class="seg" aria-label="Which events to show">{% for item in filters %}<a class="seg-item{% if item.current %} on{% endif %}" href="{{ item.href }}"{% if item.current %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}</nav></div>
+<section class="card" aria-labelledby="events-title">
+<div class="card-h"><h2 class="card-t" id="events-title">Newest first</h2><span class="pill pill-ok" data-events-live-pill hidden><span class="live-dot" aria-hidden="true"></span>Live</span></div>
+<ol class="ev-list" data-events data-after="{{ last }}" data-filter="{{ filter }}">
+{% for row in rows %}{% include "event_row.html" %}
+{% endfor %}</ol>
+<p class="card-b empty" data-events-empty{% if !rows.is_empty() %} hidden{% endif %}>Nothing to show yet. Events appear here as the VPN server reports them.</p>
+{% if let Some(note) = countries_note %}<p class="card-b hint">{{ note }}</p>{% endif %}
+</section>
+{% include "country_credit.html" %}
+<p class="sr-only" aria-live="polite" data-events-announce></p>
+<p class="hint">Failed sign-ins and bans come from ocserv's log, which reports a ban only at LOG_LEVEL 2 or higher, the default. A failed sign-in appears once ocserv refuses it: after three wrong passwords, or after a wrong code. Every wrong password adds ban points, including one the user corrects. Times are in your browser's time zone.</p>
+{% endblock %}

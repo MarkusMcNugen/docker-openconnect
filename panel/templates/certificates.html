@@ -1,0 +1,65 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Certificates</h1><p class="sub">The certificates the VPN server and this panel present, the VPN users' certificates, and when each expires</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+{% for card in cards %}
+<section class="card" aria-labelledby="cert-{{ loop.index }}">
+<div class="card-h"><h2 class="card-t" id="cert-{{ loop.index }}"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icon }}"></path></svg>{{ card.role }}</h2>{% if let Some(left) = card.left %}<span class="pill {{ card.left_class }}">{{ left }}</span>{% endif %}</div>
+{% if let Some(problem) = card.problem %}
+<p class="card-b empty">{{ problem }}</p>
+{% else %}
+<dl class="card-b kv">
+<dt>Issued to</dt><dd>{{ card.subject }}</dd>
+<dt>Issued by</dt><dd>{{ card.issuer }}</dd>
+{% if !card.names.is_empty() %}<dt>Valid for</dt><dd>{{ card.names }}</dd>{% endif %}
+{% if let Some(from) = card.from %}<dt>Valid from</dt><dd><time datetime="{{ from.iso }}" data-local-time="date">{{ from.text }} UTC</time></dd>{% endif %}
+{% if let Some(until) = card.until %}<dt>Valid until</dt><dd><time datetime="{{ until.iso }}" data-local-time="date">{{ until.text }} UTC</time></dd>{% endif %}
+{% if let Some(pin) = card.pin %}<dt>Key pin</dt><dd class="mono">{{ pin }}</dd>{% endif %}
+<dt>File</dt><dd class="mono">{{ card.path }}</dd>
+</dl>
+{% endif %}
+</section>
+{% endfor %}
+<section class="card" aria-labelledby="clients-title">
+<div class="card-h"><h2 class="card-t" id="clients-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ icon }}"></path></svg>VPN users' certificates</h2>{% if clients.is_empty() %}<span class="pill pill-mute">None</span>{% endif %}</div>
+{% if can_operate %}
+{% if users.is_empty() %}
+<p class="card-b empty">Add a VPN user first, then issue them a certificate here.</p>
+{% else %}
+<form class="card-b stack" method="post" action="/certificates/issue">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="block-form">
+<div class="field"><label class="label" for="issue-user">User</label><select class="input" id="issue-user" name="user">{% for user in users %}<option>{{ user }}</option>{% endfor %}</select></div>
+<div class="field"><label class="label" for="issue-how">Key</label><select class="input" id="issue-how" name="how"><option value="key_file">A new key in a key file</option><option value="request">The user's own key, from a signing request</option></select></div>
+<div class="field"><label class="label" for="issue-cipher">Key file encryption</label><select class="input" id="issue-cipher" name="cipher"><option value="aes256">AES-256</option><option value="triple_des">3DES, for older devices</option></select></div>
+</div>
+<div class="field"><label class="label" for="issue-request">Signing request</label><textarea class="input mono" id="issue-request" name="request" rows="4" placeholder="-----BEGIN CERTIFICATE REQUEST-----" autocapitalize="none" spellcheck="false"></textarea><p class="hint">Only for a key from a signing request. The certificate names the user and their groups, whatever names the request carries.</p></div>
+<div><button class="btn btn-primary" type="submit">Issue a certificate</button></div>
+<p class="hint">A certificate is valid for {{ days }} days. A key file holds a new key and its certificate, and its passphrase is shown once. Choose 3DES for macOS 14, iOS 17 and older Android, which cannot open AES-256 key files.</p>
+</form>
+{% endif %}
+{% endif %}
+{% if !clients.is_empty() %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">User</th><th scope="col">Serial number</th><th scope="col">Key</th><th scope="col">Valid until</th><th scope="col">State</th>{% if can_operate %}<th class="actions" scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+<tbody>
+{% for row in clients %}
+<tr>
+<td><div>{{ row.user }}</div>{% if !row.groups.is_empty() %}<div class="cell-sub">{{ row.groups }}</div>{% endif %}</td>
+<td class="mono" title="{{ row.serial }}">{{ row.serial_short }}</td>
+<td>{{ row.key }}</td>
+<td class="wrap"><time datetime="{{ row.until.iso }}" data-local-time="date">{{ row.until.text }} UTC</time></td>
+<td><span class="pill {{ row.state_class }}">{{ row.state }}</span></td>
+{% if can_operate %}<td class="actions">{% if row.active %}<div class="act-row"><form method="post" action="/certificates/renew"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="serial" value="{{ row.serial }}"><button class="btn btn-sm" type="submit">Renew<span class="sr-only"> the certificate {{ row.serial_short }} of {{ row.user }}</span></button></form><form method="post" action="/certificates/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="serial" value="{{ row.serial }}"><button class="btn btn-sm" type="submit">Revoke<span class="sr-only"> the certificate {{ row.serial_short }} of {{ row.user }}</span></button></form></div>{% endif %}</td>{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+<p class="hint">The VPN server's key pin is what clients check; it changes only when the server's key does. The image's CA issues the server's and the panel's certificates unless SERVER_CERT or PANEL_CERT names your own. Trust the CA's file in your browser to sign in to the panel without a warning. VPN users' certificates come from a CA of their own and sign in only when Sign-in on the Settings page allows certificates. Renew issues a new certificate the same way and keeps the old one valid until it expires; Revoke stops one at once and ends its user's sessions. Times are in your browser's time zone.</p>
+{% endblock %}

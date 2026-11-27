@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="signin">
+<section class="card signin-card" aria-labelledby="signin-title">
+<div class="signin-head">
+<img class="logo-lg" src="{{ page.logo }}" alt="">
+<h1 id="signin-title">Second factor</h1>
+<p>{{ intro }}</p>
+</div>
+{% if passkey %}
+<div class="callout callout-bad" role="alert" data-passkey-error hidden><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning }}"></path></svg><span></span></div>
+<button class="btn btn-primary btn-block" type="button" data-passkey-sign-in hidden><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ passkey_icon }}"></path></svg>Use a passkey</button>
+<noscript><p class="hint">Passkeys need JavaScript, which this browser has turned off.</p></noscript>
+{% endif %}
+{% if code %}
+{% if passkey %}<p class="or-line"><span>or</span></p>{% endif %}
+<form class="stack" method="post" action="/second-factor">
+<div class="field"><label class="label" for="code">Code from your authenticator app</label><input class="input mono" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
+<button class="btn {% if passkey %}{% else %}btn-primary {% endif %}btn-block" type="submit">Verify</button>
+</form>
+{% endif %}
+<p class="signin-foot"><a href="/login">Start over</a></p>
+</section>
+</main>
+{% endblock %}

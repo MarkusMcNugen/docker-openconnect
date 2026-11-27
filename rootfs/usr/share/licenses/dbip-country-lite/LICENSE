@@ -1,0 +1,8 @@
+IP Geolocation by DB-IP (https://db-ip.com)
+
+The image carries DB-IP's "IP to Country Lite" database
+(dbip-country-lite.mmdb), downloaded when the image is built. DB-IP
+licenses it under the Creative Commons Attribution 4.0 International
+License (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/
+
+The admin panel shows this attribution wherever it shows countries.

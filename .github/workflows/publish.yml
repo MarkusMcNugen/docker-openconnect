@@ -1,0 +1,282 @@
+# Builds, tests and publishes the image for linux/amd64, linux/arm64 and
+# linux/arm/v7 to GitHub Container Registry and Docker Hub.
+#
+# Each platform is built once and pushed to GHCR by digest only, with an SBOM
+# and provenance attached; the tests then pull that digest, so the bytes tested
+# are the bytes published. amd64 and arm64 run the full smoke test on native
+# runners; arm/v7 runs under QEMU, where tunnels and netfilter are not
+# available, and gets the emulated checks. The release job, the only job that
+# holds the Docker Hub credentials (environment DockerHub), tags the tested
+# digests in GHCR and copies them to Docker Hub, and runs only when every
+# platform passed.
+#
+# Publishing happens on a push to main, on a manual run, every week (for Alpine
+# package updates) and on the daily check when ocserv has released a version
+# that has no image yet. Pull requests build and test without pushing.
+name: Publish image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * *"
+    - cron: "41 4 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOCKERHUB_IMAGE: docker.io/markusmcnugen/openconnect
+  GHCR_IMAGE: ghcr.io/markusmcnugen/docker-openconnect
+  WEEKLY_CRON: "41 4 * * 0"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      minor: ${{ steps.plan.outputs.minor }}
+      publish: ${{ steps.plan.outputs.publish }}
+      build: ${{ steps.plan.outputs.build }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Resolve the ocserv release and decide what to do
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          version=$(sh scripts/latest-ocserv-version.sh)
+          publish=true
+          build=true
+          case $EVENT in
+            pull_request)
+              publish=false
+              ;;
+            schedule)
+              if [[ $SCHEDULE != "$WEEKLY_CRON" ]] \
+                && docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$version" >/dev/null 2>&1; then
+                publish=false
+                build=false
+              fi
+              ;;
+          esac
+          echo "ocserv $version: build $build, publish $publish"
+          {
+            echo "version=$version"
+            echo "minor=${version%.*}"
+            echo "publish=$publish"
+            echo "build=$build"
+          } >>"$GITHUB_OUTPUT"
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The previous commit's Cargo.lock is the base for the crate age check.
+          fetch-depth: 2
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          shellcheck -x -s bash rootfs/usr/local/bin/docker-entrypoint.sh tests/run.sh
+          shellcheck -s sh rootfs/usr/local/libexec/ocserv-docker/session-hook scripts/latest-ocserv-version.sh
+      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: Dockerfile
+      - name: actionlint
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" -w /repo \
+            rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -color
+      - name: Unit tests
+        run: bash tests/run.sh unit
+      - name: Panel checks
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src/panel -e CARGO_TARGET_DIR=/tmp/target \
+            rust:1.100.0-alpine3.24@sha256:8d0e82abfdf9a38071e07cabc5afba4ddbe077631a80e4e742a760c38beadc33 \
+            sh -euc '
+              apk add --no-cache cargo-deny
+              rustup component add clippy rustfmt
+              cargo fmt --check
+              cargo clippy -p ocpanel --no-deps --locked --all-targets -- -D warnings
+              cargo test -p ocpanel --locked
+              cargo deny --locked check'
+      - name: Locked crates are at least 14 days old
+        run: |
+          if git cat-file -e HEAD^:panel/Cargo.lock 2>/dev/null; then
+            git show HEAD^:panel/Cargo.lock >"$RUNNER_TEMP/base-Cargo.lock"
+            python3 scripts/check-crate-age.py panel/Cargo.lock "$RUNNER_TEMP/base-Cargo.lock"
+          else
+            python3 scripts/check-crate-age.py panel/Cargo.lock
+          fi
+
+  test:
+    needs: [plan, lint]
+    if: needs.plan.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            tests: smoke
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            tests: smoke
+          - arch: armv7
+            platform: linux/arm/v7
+            runner: ubuntu-24.04
+            tests: emulated
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      PUBLISH: ${{ needs.plan.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: matrix.tests == 'emulated'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: env.PUBLISH == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push to GHCR by digest
+        if: env.PUBLISH == 'true'
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          pull: true
+          build-args: OCSERV_VERSION=${{ needs.plan.outputs.version }}
+          outputs: type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Build for testing only
+        if: env.PUBLISH != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          pull: true
+          build-args: OCSERV_VERSION=${{ needs.plan.outputs.version }}
+          load: true
+          tags: openconnect:test
+          cache-from: type=gha,scope=${{ matrix.arch }}
+
+      - name: Select the image under test
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          if [[ $PUBLISH == true ]]; then
+            image="$GHCR_IMAGE@$DIGEST"
+            docker pull --platform "$PLATFORM" "$image"
+          else
+            image=openconnect:test
+          fi
+          echo "IMAGE=$image" >>"$GITHUB_ENV"
+      # The signal frame the kernel needs, and so the signal stack ocserv's
+      # workers can use, depends on the CPU and the kernel of the runner.
+      - name: Describe the runner
+        if: matrix.tests == 'smoke'
+        run: |
+          uname -srm
+          grep -m1 'model name' /proc/cpuinfo || echo 'no model name in /proc/cpuinfo'
+          grep -m1 -ow -E 'avx512f|amx_tile' /proc/cpuinfo || echo 'no avx512f or amx_tile flag'
+          LD_SHOW_AUXV=1 /bin/true | grep AT_MINSIGSTKSZ || echo 'no AT_MINSIGSTKSZ in the auxiliary vector'
+      - name: Smoke test
+        if: matrix.tests == 'smoke'
+        env:
+          CONTAINER_ENGINE: docker
+        run: bash tests/run.sh smoke "$IMAGE"
+      - name: Emulated checks
+        if: matrix.tests == 'emulated'
+        env:
+          CONTAINER_ENGINE: docker
+          TEST_PLATFORM: ${{ matrix.platform }}
+        run: bash tests/run.sh emulated "$IMAGE"
+
+      - name: Record the digest
+        if: env.PUBLISH == 'true'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+      - if: env.PUBLISH == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.arch }}
+          path: digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs: [plan, test]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment: DockerHub
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: digests
+          pattern: digest-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: |
+            ${{ env.GHCR_IMAGE }}
+            ${{ env.DOCKERHUB_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.plan.outputs.version }}
+            type=raw,value=${{ needs.plan.outputs.minor }}
+            type=sha,format=short
+      - name: Tag the tested digests in GHCR and copy them to Docker Hub
+        working-directory: digests
+        run: |
+          count=$(find . -type f | wc -l)
+          [[ $count == 3 ]] || { echo "expected 3 platform digests, found $count"; exit 1; }
+          sources=()
+          for digest in *; do sources+=("$GHCR_IMAGE@sha256:$digest"); done
+          for image in "$GHCR_IMAGE" "$DOCKERHUB_IMAGE"; do
+            mapfile -t tags < <(jq -r --arg image "$image" '.tags[] | select(startswith($image + ":"))' <<<"$DOCKER_METADATA_OUTPUT_JSON")
+            args=()
+            for tag in "${tags[@]}"; do args+=(-t "$tag"); done
+            docker buildx imagetools create "${args[@]}" "${sources[@]}"
+            docker buildx imagetools inspect "$image:latest"
+          done

@@ -1,0 +1,73 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Sites</h1><p class="sub">Networks that sites publish through their VPN users, and the rules for who reaches them</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+{% for note in notes %}
+<div class="callout {{ note.class }}" role="note"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning_icon }}"></path></svg><span>{{ note.text }}</span></div>
+{% endfor %}
+<section class="card" aria-labelledby="sites-title">
+<div class="card-h"><h2 class="card-t" id="sites-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ site_icon }}"></path></svg>Sites</h2>{% if sites.is_empty() %}<span class="pill pill-mute">None</span>{% else %}<span class="pill pill-info">{{ sites_count }}</span>{% endif %}</div>
+{% if sites.is_empty() %}
+<p class="card-b empty">No VPN user publishes a network yet. A site's router signs in as a VPN user, and that user's settings, under <a href="/users">VPN users</a>, take the networks behind it.</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">Site</th><th scope="col">Networks</th><th scope="col">Connected</th><th scope="col">Beyond the VPN</th></tr></thead>
+<tbody>
+{% for row in sites %}
+<tr>
+<td><div><a class="name-link" href="{{ row.settings }}">{{ row.name }}</a></div><div class="cell-sub">{{ row.kind }}</div></td>
+<td class="mono">{% for network in row.networks %}<div>{{ network }}</div>{% endfor %}</td>
+<td>{% if row.connected %}<span class="pill pill-ok">Connected</span>{% else %}<span class="pill pill-mute">Not connected</span>{% endif %}</td>
+<td>{% if row.user %}<div class="act-row">{% if row.egress %}<span class="pill pill-info">On</span>{% else %}<span class="pill pill-mute">Off</span>{% endif %}{% if can_operate %}<form method="post" action="/sites/egress"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="user" value="{{ row.name }}">{% if row.egress %}<input type="hidden" name="on" value="off"><button class="btn btn-sm" type="submit">Turn off<span class="sr-only"> traffic beyond the VPN for {{ row.name }}</span></button>{% else %}<input type="hidden" name="on" value="on"><button class="btn btn-sm" type="submit">Turn on<span class="sr-only"> traffic beyond the VPN for {{ row.name }}</span></button>{% endif %}</form>{% endif %}</div>{% else %}<span class="cell-sub">Set for users only</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+<section class="card" aria-labelledby="rules-title">
+<div class="card-h"><h2 class="card-t" id="rules-title"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ rule_icon }}"></path></svg>Rules</h2>{% if rules.is_empty() %}<span class="pill pill-mute">None</span>{% else %}<span class="pill pill-info">{{ rules_count }}</span>{% endif %}</div>
+<div class="card-b stack">
+<p class="empty">A rule lets new connections go one way, from where it starts to where it leads, and lets their replies back. For connections both ways, add a rule each way. A rule for a group follows its members' sessions as they connect and disconnect.</p>
+{% if can_operate %}
+<form class="rule-form" method="post" action="/sites/rules/add">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{% for end in ends %}
+<div class="field"><label class="label" for="rule-{{ end.name }}">{{ end.label }}</label><select class="input" id="rule-{{ end.name }}" name="{{ end.name }}" data-other="rule-{{ end.name }}-network-field">
+{% if end.clients %}<option value="clients"{% if end.clients_selected %} selected{% endif %}>Every VPN client</option>{% endif %}
+{% if !end.groups.is_empty() %}<optgroup label="Groups">{% for choice in end.groups %}<option value="{{ choice.value }}"{% if choice.selected %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}</optgroup>{% endif %}
+{% if !end.networks.is_empty() %}<optgroup label="Published networks">{% for choice in end.networks %}<option value="{{ choice.value }}"{% if choice.selected %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}</optgroup>{% endif %}
+<option value="other"{% if end.other %} selected{% endif %}>Another network</option>
+</select></div>
+<div class="field" id="rule-{{ end.name }}-network-field"><label class="label" for="rule-{{ end.name }}-network">{{ end.label }} network</label><input class="input mono" id="rule-{{ end.name }}-network" name="{{ end.name }}_network" value="{{ end.typed }}" placeholder="10.30.0.0/24" autocapitalize="none" autocomplete="off" spellcheck="false"></div>
+{% endfor %}
+<div class="field"><span class="label" aria-hidden="true">&nbsp;</span><button class="btn btn-primary" type="submit">Add rule</button></div>
+</form>
+{% endif %}
+</div>
+{% if rules.is_empty() %}
+<p class="card-b empty">No rules yet, so no VPN client reaches a site's networks and no site reaches a VPN client.</p>
+{% else %}
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">From</th><th scope="col">To</th><th scope="col">Added</th>{% if can_operate %}<th class="actions" scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+<tbody>
+{% for rule in rules %}
+<tr>
+<td class="wrap">{{ rule.from }}</td>
+<td class="wrap">{{ rule.to }}</td>
+<td class="wrap">{{ rule.added }}</td>
+{% if can_operate %}<td class="actions"><form method="post" action="/sites/rules/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ rule.id }}"><button class="btn btn-sm" type="submit">Remove<span class="sr-only"> the rule from {{ rule.from }} to {{ rule.to }}</span></button></form></td>{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+</section>
+<p class="hint">Beyond the VPN lets a site's networks reach the networks outside the VPN through this server, such as the internet; it stays off for a site until it is turned on here. A site's router signs in as its VPN user, and that user's settings hold the site's networks.</p>
+{% endblock %}

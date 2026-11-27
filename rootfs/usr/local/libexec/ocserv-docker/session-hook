@@ -1,0 +1,93 @@
+#!/bin/sh
+# ocserv's connect-script and disconnect-script. With the admin panel on, it
+# refuses a connecting client whose address is on the panel's blocklist, or
+# whose sign-in the panel's location checks find implausible. It
+# logs the session event, and when the panel is on records it and brings the
+# firewall's site-to-site rules up to date with the session; then it runs
+# $CONFIG_DIR/hooks/<event>.sh, or a hand-edited 1.x
+# $CONFIG_DIR/<event>.sh, when one exists. ocserv refuses the session when a
+# connect hook exits non-zero. Stays POSIX sh: ocserv-fw runs it with /bin/sh.
+
+config_dir=${CONFIG_DIR:-/config}
+now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# The firewall drops a blocked address, but behind a load balancer every
+# connection comes from the balancer's address and only ocserv knows the
+# client's. A certificate signs a user in without ocserv reading the
+# password file, where the panel locks and removes users. PANEL_EVENTS_DIR
+# is set when the panel is on. A client that cannot be checked is refused.
+if [ "${REASON:-}" = connect ] && [ -n "${PANEL_EVENTS_DIR:-}" ]; then
+    if ! verdict=$(ocpanel check-address "${IP_REAL:-}" 2>&1) ||
+        ! verdict=$(ocpanel check-user "${USERNAME:-}" 2>&1); then
+        printf '%s [warn] refused user %s from %s: %s\n' \
+            "$now" "${USERNAME:-}" "${IP_REAL:-}" "$verdict"
+        exit 1
+    fi
+fi
+
+# The admin panel's location checks score where the user signs in from: a
+# sign-in they find implausible is refused, an unusual one is logged and let
+# in. A check that cannot run lets the client in, and the log says so; the
+# panel's Live events and alerts do too, unless ocpanel itself failed.
+if [ "${REASON:-}" = connect ] && [ -n "${PANEL_EVENTS_DIR:-}" ]; then
+    verdict=$(ocpanel check-location 2>&1)
+    case $? in
+        0)
+            if [ -n "$verdict" ]; then
+                printf '%s [warn] user %s from %s: %s\n' \
+                    "$now" "${USERNAME:-}" "${IP_REAL:-}" "$verdict"
+            fi
+            ;;
+        1)
+            printf '%s [warn] refused user %s from %s: %s\n' \
+                "$now" "${USERNAME:-}" "${IP_REAL:-}" "$verdict"
+            exit 1
+            ;;
+        *)
+            printf '%s [warn] user %s from %s was let in without a location check, which failed: %s\n' \
+                "$now" "${USERNAME:-}" "${IP_REAL:-}" "$verdict"
+            ;;
+    esac
+fi
+
+case ${REASON:-} in
+    connect)
+        printf '%s [info] user %s connected from %s, VPN address %s%s, device %s\n' \
+            "$now" "${USERNAME:-}" "${IP_REAL:-}" "${IP_REMOTE:-}" \
+            "${IPV6_REMOTE:+ and $IPV6_REMOTE}" "${DEVICE:-}"
+        ;;
+    disconnect)
+        printf '%s [info] user %s disconnected after %s s, %s bytes in, %s bytes out\n' \
+            "$now" "${USERNAME:-}" "${STATS_DURATION:-0}" "${STATS_BYTES_IN:-0}" \
+            "${STATS_BYTES_OUT:-0}"
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+# With the admin panel on, the event also goes to its Live events page. A
+# failure there is logged and never refuses the session.
+if [ -n "${PANEL_EVENTS_DIR:-}" ] && [ -d "$PANEL_EVENTS_DIR" ]; then
+    ocpanel record-event ||
+        printf '%s [warn] the admin panel did not record this %s\n' "$now" "$REASON"
+fi
+
+# The admin panel's site-to-site rules that name a group follow its
+# sessions in the firewall. A failure is logged and never refuses the
+# session, which then gets nothing those rules give its group.
+if [ -n "${PANEL_EVENTS_DIR:-}" ]; then
+    ocpanel site-sync "$REASON" ||
+        printf '%s [warn] the firewall did not take in this %s for the site-to-site rules\n' \
+            "$now" "$REASON"
+fi
+
+for hook in "$config_dir/hooks/$REASON.sh" "$config_dir/$REASON.sh"; do
+    if [ -f "$hook" ]; then
+        if [ -x "$hook" ]; then
+            exec "$hook"
+        fi
+        exec /bin/sh "$hook"
+    fi
+done
+exit 0

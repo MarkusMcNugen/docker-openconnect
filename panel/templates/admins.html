@@ -1,0 +1,89 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="page-h"><div><h1 class="h1">Admins</h1><p class="sub">{{ summary }}</p></div></div>
+{% if let Some(notice) = notice %}
+<div class="callout {{ notice.class }}" role="status"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ notice.icon }}"></path></svg><span>{{ notice.text }}</span></div>
+{% endif %}
+{% if let Some(handover) = handover %}
+<section class="card" aria-labelledby="handover-title">
+<div class="card-h"><h2 class="card-t" id="handover-title">One-time password for {{ handover.name }}</h2></div>
+<div class="card-b stack">
+<div class="callout callout-warn" role="note"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ warning_icon }}"></path></svg><span>This password is shown once, and the panel does not keep it. Give it to {{ handover.name }} now. They replace it at their first sign-in, and outside the trusted networks they then set up an authenticator app.</span></div>
+<div class="copy-row"><span class="mono" id="one-time-password">{{ handover.password }}</span><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="one-time-password" aria-label="Copy the password" title="Copy the password" hidden><svg class="ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ copy_icon }}"></path></svg></button></div>
+</div>
+</section>
+{% endif %}
+<section class="card" aria-labelledby="add-title">
+<div class="card-h"><h2 class="card-t" id="add-title">Add an admin</h2></div>
+<form class="card-b form-grid" method="post" action="/admins/change">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="add">
+<div class="field"><label class="label" for="new-name">Name</label><input class="input" id="new-name" name="name" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" required><p class="hint">Letters, digits, dots, hyphens, underscores and at signs.</p></div>
+<div class="field"><label class="label" for="new-role">Role</label><select class="input" id="new-role" name="role">{% for option in roles %}<option value="{{ option.value }}"{% if option.value == "viewer" %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></div>
+<div class="form-end form-end-stack"><p class="hint">The new admin gets a one-time password, shown once on this page.</p><button class="btn btn-primary" type="submit">Add admin</button></div>
+</form>
+</section>
+<section class="card">
+<div class="table-wrap">
+<table class="t">
+<thead><tr><th scope="col">Admin</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">Second factor</th><th scope="col">Last sign-in</th><th class="actions" scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+<tbody>
+{% for row in rows %}
+<tr>
+<td><div class="person"><span class="av" aria-hidden="true">{{ row.initials }}</span><div><div>{{ row.name }}{% if row.is_self %} (you){% endif %}</div><div class="cell-sub">Added <time datetime="{{ row.added.iso }}" data-local-time="date">{{ row.added.text }} UTC</time></div></div></div></td>
+<td>{{ row.role }}</td>
+<td><span class="pill {{ row.status_class }}">{{ row.status }}</span>{% if let Some(note) = row.status_note %}<div class="cell-sub">{{ note }}</div>{% endif %}{% if let Some(until) = row.vacation %}<div class="cell-sub">On vacation through {{ until }}</div>{% endif %}</td>
+<td><span class="pill {% if row.second_factor %}pill-ok{% else %}pill-mute{% endif %}">{{ row.factors }}</span></td>
+<td>{% if let Some(last) = row.last_login %}<time datetime="{{ last.iso }}" data-local-time="date">{{ last.text }} UTC</time>{% else %}Never{% endif %}</td>
+<td class="actions">{% if row.is_self %}<span class="cell-sub self-note">Another owner can change your account</span>{% else %}<div class="row-actions">
+<button class="btn btn-sm" type="button" commandfor="role-{{ row.name }}-dialog" command="show-modal">Change role<span class="sr-only"> of {{ row.name }}</span></button>
+<dialog class="card modal" id="role-{{ row.name }}-dialog" aria-labelledby="role-{{ row.name }}-title">
+<form method="post" action="/admins/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="role"><input type="hidden" name="name" value="{{ row.name }}">
+<div class="card-h"><h2 class="card-t" id="role-{{ row.name }}-title">Role of {{ row.name }}</h2></div>
+<div class="card-b"><div class="field"><label class="label" for="role-{{ row.name }}">Role</label><select class="input" id="role-{{ row.name }}" name="role">{% for option in roles %}<option value="{{ option.value }}"{% if option.value == row.role_value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select><p class="hint">A new role applies from {{ row.name }}'s next click.</p></div></div>
+<div class="card-f"><button class="btn" type="button" commandfor="role-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div>
+</form>
+</dialog>
+<button class="btn btn-sm" type="button" commandfor="password-{{ row.name }}-dialog" command="show-modal">Reset password<span class="sr-only"> of {{ row.name }}</span></button>
+<dialog class="card modal" id="password-{{ row.name }}-dialog" aria-labelledby="password-{{ row.name }}-title">
+<form method="post" action="/admins/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="password"><input type="hidden" name="name" value="{{ row.name }}">
+<div class="card-h"><h2 class="card-t" id="password-{{ row.name }}-title">Reset the password of {{ row.name }}</h2></div>
+<p class="card-b empty">This gives {{ row.name }} a one-time password, shown once on the page that follows, and ends their sessions.</p>
+<div class="card-f"><button class="btn" type="button" commandfor="password-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-primary" type="submit">Make a one-time password</button></div>
+</form>
+</dialog>
+{% if row.second_factor %}<button class="btn btn-sm" type="button" commandfor="factor-{{ row.name }}-dialog" command="show-modal">Reset second factor<span class="sr-only"> of {{ row.name }}</span></button>
+<dialog class="card modal" id="factor-{{ row.name }}-dialog" aria-labelledby="factor-{{ row.name }}-title">
+<form method="post" action="/admins/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="second_factor"><input type="hidden" name="name" value="{{ row.name }}">
+<div class="card-h"><h2 class="card-t" id="factor-{{ row.name }}-title">Reset the second factor of {{ row.name }}</h2></div>
+<p class="card-b empty">This removes {{ row.name }}'s authenticator app and passkeys and ends their sessions. Their password alone then opens a session that can only set up a new second factor.</p>
+<div class="card-f"><button class="btn" type="button" commandfor="factor-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-primary" type="submit">Remove the app and passkeys</button></div>
+</form>
+</dialog>{% endif %}
+{% if locations_on %}<button class="btn btn-sm" type="button" commandfor="vacation-{{ row.name }}-dialog" command="show-modal">Vacation<span class="sr-only"> for {{ row.name }}</span></button>
+<dialog class="card modal" id="vacation-{{ row.name }}-dialog" aria-labelledby="vacation-{{ row.name }}-title">
+<form method="post" action="/vacation"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="admin"><input type="hidden" name="name" value="{{ row.name }}"><input type="hidden" name="back" value="admins">
+<div class="card-h"><h2 class="card-t" id="vacation-{{ row.name }}-title">Vacation for {{ row.name }}</h2></div>
+<div class="card-b stack"><p class="empty">Through the day you pick, when {{ row.name }} signs in to this panel from somewhere implausible, the sign-in goes through with an alert instead of being refused.</p>
+<div class="field"><label class="label" for="vacation-{{ row.name }}">Last day</label><input class="input" id="vacation-{{ row.name }}" name="until" type="date" min="{{ vacation_from }}" max="{{ vacation_to }}"{% if let Some(until) = row.vacation %} value="{{ until }}"{% endif %} required><p class="hint">From today to {{ vacation_to }}.</p></div></div>
+<div class="card-f">{% if row.vacation.is_some() %}<button class="btn btn-aside" type="submit" form="vacation-{{ row.name }}-end">End the vacation</button>{% endif %}<button class="btn" type="button" commandfor="vacation-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div>
+</form>
+{% if row.vacation.is_some() %}<form id="vacation-{{ row.name }}-end" method="post" action="/vacation" hidden><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="admin"><input type="hidden" name="name" value="{{ row.name }}"><input type="hidden" name="back" value="admins"><input type="hidden" name="until" value=""></form>{% endif %}
+</dialog>{% endif %}
+{% if row.locked %}<form method="post" action="/admins/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="unlock"><input type="hidden" name="name" value="{{ row.name }}"><button class="btn btn-sm" type="submit">Unlock<span class="sr-only"> {{ row.name }}</span></button></form>{% endif %}
+<button class="btn btn-sm btn-danger" type="button" commandfor="remove-{{ row.name }}-dialog" command="show-modal">Remove<span class="sr-only"> {{ row.name }}</span></button>
+<dialog class="card modal" id="remove-{{ row.name }}-dialog" aria-labelledby="remove-{{ row.name }}-title">
+<form method="post" action="/admins/change"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="change" value="remove"><input type="hidden" name="name" value="{{ row.name }}">
+<div class="card-h"><h2 class="card-t" id="remove-{{ row.name }}-title">Remove {{ row.name }}?</h2></div>
+<p class="card-b empty">This deletes {{ row.name }}'s account and ends their sessions.</p>
+<div class="card-f"><button class="btn" type="button" commandfor="remove-{{ row.name }}-dialog" command="close">Cancel</button><button class="btn btn-danger" type="submit">Remove {{ row.name }}</button></div>
+</form>
+</dialog>
+</div>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</section>
+<p class="hint">Owners manage everything, including settings, certificates, admins and the audit log. Operators manage VPN users, groups, sessions and bans. Viewers see every page but change nothing. A new role applies from the admin's next click. Times are in your browser's time zone.</p>
+{% endblock %}

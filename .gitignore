@@ -1,0 +1,5 @@
+tools/agent-scratch/
+panel/target/
+wiki/public/
+wiki/resources/
+wiki/.hugo_build.lock

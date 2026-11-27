@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="portal-head"><header class="topbar portal-bar">
+<div class="brand"><img src="{{ page.logo }}" alt=""><div><div class="brand-name">OpenConnect VPN</div><div class="brand-sub">{{ bar.host }}</div></div></div>
+<nav class="tabs portal-nav" aria-label="Portal"><a class="tab{% if bar.current == "/" %} on{% endif %}" href="/"{% if bar.current == "/" %} aria-current="page"{% endif %}>Connect</a><a class="tab{% if bar.current == "/account" %} on{% endif %}" href="/account"{% if bar.current == "/account" %} aria-current="page"{% endif %}>Account</a></nav>
+<div class="topbar-end">
+<span class="portal-who">Signed in as <span class="mono">{{ bar.user }}</span></span>
+<button class="btn btn-ghost btn-icon" id="theme-toggle" type="button" aria-label="Switch the theme" title="Switch the theme"><svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ bar.sun }}"></path></svg></button>
+<form method="post" action="/logout"><button class="btn btn-sm" type="submit"><svg class="ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="{{ bar.sign_out }}"></path></svg>Sign out</button></form>
+</div>
+</header></div>
+<main class="content portal-content">
+{% block content %}{% endblock %}
+</main>
+{% endblock %}
